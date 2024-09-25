@@ -1,1 +1,30 @@
+/* app/static/css/styles.css */
 
+/* Custom Theme Colors */
+body {
+    background-color: #f8f9fa;
+}
+
+.navbar {
+    background-color: #003366;
+}
+
+footer {
+    background-color: #003366;
+}
+
+.btn-primary {
+    background-color: #00509e;
+    border-color: #00509e;
+}
+
+.btn-primary:hover {
+    background-color: #003f7f;
+    border-color: #003f7f;
+}
+
+.footer {
+    color: #fff;
+}
+
+/* Additional custom styles as needed */
