@@ -2,34 +2,35 @@ import os
 import numpy as np
 import secrets
 import hashlib
-import struct
 import pickle
+import ctypes
+from sympy import nextprime
 from cryptography.hazmat.primitives.asymmetric import ec
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-import ctypes
 
 # --- Helper function for secure weighted choice ---
 def weighted_choice(items, weights):
     clamped_weights = [max(0, w) for w in weights]
-    total = int(sum(clamped_weights))  # Sum of clamped weights
+    total = sum(clamped_weights)  # Sum of clamped weights
 
     if total == 0:
         return items[0]  # Return the first item if all weights are zero
 
-    cumulative_weights = [int(sum(clamped_weights[:i + 1])) for i in range(len(clamped_weights))]
-    rand = secrets.randbelow(total)
+    cumulative_weights = [sum(clamped_weights[:i + 1]) for i in range(len(clamped_weights))]
+    rand = secrets.SystemRandom().uniform(0, total)
     for i, weight in enumerate(cumulative_weights):
         if rand < weight:
             return items[i]
+    return items[-1]
 
 # --- Qubit Class for Quantum Operations ---
 class Qubit:
     def __init__(self, label="qubit"):
         self.label = label
         self.state = np.array([complex(1, 0), complex(0, 0)], dtype=np.complex128)  # Default state
-        self.entangled_partner = None  # Reference to the entangled qubit
+        self.private_entangled_partner = None  # Entangled with a private qubit
         self.normalize()
 
     def normalize(self):
@@ -40,11 +41,13 @@ class Qubit:
         self.state = self.state / norm
 
     def apply_hadamard(self):
-        H = np.array([[1 / np.sqrt(2), 1 / np.sqrt(2)], [1 / np.sqrt(2), -1 / np.sqrt(2)]], dtype=np.complex128)
+        H = np.array([[1, 1],
+                      [1, -1]], dtype=np.complex128) / np.sqrt(2)
         self.apply_gate(H)
 
     def phase_gate(self, theta):
-        T = np.array([[1, 0], [0, np.exp(1j * theta)]], dtype=np.complex128)
+        T = np.array([[1, 0],
+                      [0, np.exp(1j * theta)]], dtype=np.complex128)
         self.apply_gate(T)
 
     def apply_gate(self, gate_matrix):
@@ -53,11 +56,14 @@ class Qubit:
 
     def apply_pauli(self, gate):
         if gate == 'X':
-            P = np.array([[0, 1], [1, 0]], dtype=np.complex128)
+            P = np.array([[0, 1],
+                          [1, 0]], dtype=np.complex128)
         elif gate == 'Y':
-            P = np.array([[0, -1j], [1j, 0]], dtype=np.complex128)
+            P = np.array([[0, -1j],
+                          [1j, 0]], dtype=np.complex128)
         elif gate == 'Z':
-            P = np.array([[1, 0], [0, -1]], dtype=np.complex128)
+            P = np.array([[1, 0],
+                          [0, -1]], dtype=np.complex128)
         else:
             raise ValueError("Unknown Pauli gate.")
         self.apply_gate(P)
@@ -68,8 +74,9 @@ class Qubit:
             raise ValueError("Invalid state: both probabilities are zero.")
         result = weighted_choice([0, 1], probabilities)
         self.state = np.array([1, 0] if result == 0 else [0, 1], dtype=np.complex128)
-        if self.entangled_partner:
-            self.entangled_partner.state = self.state
+        # Apply measurement collapse to entangled partners
+        if self.private_entangled_partner:
+            self.private_entangled_partner.state = self.state.copy()
         return result
 
     def put_back_in_superposition(self):
@@ -83,21 +90,30 @@ class Qubit:
                 theta = secrets.SystemRandom().uniform(0, 2 * np.pi)
                 self.phase_gate(theta)
 
-    def entangle(self, other_qubit):
-        # Only perform entanglement if not already entangled
-        if self.entangled_partner is not other_qubit:
-            self.entangled_partner = other_qubit
-            other_qubit.entangled_partner = self
-            self.apply_hadamard()
-            other_qubit.apply_hadamard()
-            print(f"{self.label} entangled with {other_qubit.label}.")
+    def entangle_with_private(self, private_qubit):
+        # Ensure no existing entanglement
+        if self.private_entangled_partner is not None and self.private_entangled_partner is not private_qubit:
+            self.disentangle_private()
+        if private_qubit.private_entangled_partner is not None and private_qubit.private_entangled_partner is not self:
+            private_qubit.disentangle_private()
 
-    def disentangle(self):
-        # Only perform disentanglement if currently entangled
-        if self.entangled_partner:
-            print(f"{self.label} disentangled from {self.entangled_partner.label}.")
-            self.entangled_partner.entangled_partner = None
-            self.entangled_partner = None
+        if self.private_entangled_partner is None and private_qubit.private_entangled_partner is None:
+            self.private_entangled_partner = private_qubit
+            private_qubit.private_entangled_partner = self
+            self.apply_hadamard()
+            private_qubit.apply_hadamard()
+            print(f"{self.label} entangled with {private_qubit.label} ")
+        elif self.private_entangled_partner is private_qubit:
+            pass  # Already entangled with this private qubit
+        else:
+            print(f"{self.label} cannot entangle with {private_qubit.label} (already entangled).")
+
+    def disentangle_private(self):
+        if self.private_entangled_partner:
+            print(f"{self.label} disentangled from {self.private_entangled_partner.label}")
+            partner = self.private_entangled_partner
+            self.private_entangled_partner = None
+            partner.private_entangled_partner = None
 
 # --- XMSS (Extended Merkle Signature Scheme) Class for Post-Quantum Signatures ---
 class XMSS:
@@ -116,6 +132,9 @@ class XMSS:
     def _compute_merkle_root(self, leaves):
         nodes = leaves
         while len(nodes) > 1:
+            # If odd number of nodes, duplicate the last node
+            if len(nodes) % 2 != 0:
+                nodes.append(nodes[-1])
             nodes = [self._hash(nodes[i] + nodes[i + 1]) for i in range(0, len(nodes), 2)]
         return nodes[0]
 
@@ -129,7 +148,7 @@ class XMSS:
 
     def _get_auth_path(self, index):
         auth_path = []
-        for i in range(self.height):
+        for _ in range(self.height):
             sibling = index ^ 1
             auth_path.append(self.leaves[sibling])
             index //= 2
@@ -137,30 +156,57 @@ class XMSS:
 
 # --- KeySplit Class for Shred Key Management ---
 class KeySplit:
-    def __init__(self, private_key):
-        self.private_key = private_key
-        self.public_key = private_key.public_key()
-        self.salt = os.urandom(32)  # Each KeySplit has its own salt
+    def __init__(self, private_key=None, salt=None):
+        if private_key is None:
+            self.private_key = ec.generate_private_key(ec.SECP256R1())
+        else:
+            self.private_key = private_key
+        self.public_key = self.private_key.public_key()
+        self.salt = salt if salt is not None else os.urandom(32)  # Each KeySplit has its own salt
+
+    def serialize(self):
+        private_bytes = self.private_key.private_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PrivateFormat.PKCS8,  # Use PKCS8 for compatibility
+            encryption_algorithm=serialization.NoEncryption()
+        )
+        salt = self.salt
+        return {
+            'private_key': private_bytes,
+            'salt': salt
+        }
+
+    @staticmethod
+    def deserialize(data):
+        private_key = serialization.load_pem_private_key(
+            data['private_key'],
+            password=None
+        )
+        salt = data['salt']
+        return KeySplit(private_key=private_key, salt=salt)
 
 # --- ShredCipher Class ---
 class ShredCipher:
-    def __init__(self, num_splits=8, shred_key_size=2048, shred_public_exponent=65537):
+    def __init__(self, num_splits=8, shred_key_splits=None, subkey_shred_keys=None, xmss=None):
         self.num_splits = num_splits
-        self.shred_key_splits = []
-        self.subkey_shred_keys = []
+        self.shred_key_splits = shred_key_splits if shred_key_splits is not None else []
+        self.subkey_shred_keys = subkey_shred_keys if subkey_shred_keys is not None else []
         self.qubit_identifiers = {}
-        self.shred_private_key, self.shred_public_key = None, None
-        self.xmss = XMSS(height=10)  # XMSS instance for signing
-        self.generate_keys()
-        self.generate_and_split_initial_key()
+        self.shred_private_key = None
+        self.shred_public_key = None
+        self.xmss = xmss if xmss is not None else XMSS(height=10)
+        if not self.shred_key_splits:
+            self.generate_keys()
+        if not self.subkey_shred_keys:
+            self.generate_and_split_initial_key()
         self.generate_qubit_identifiers()
 
     def generate_keys(self):
         self.shred_private_key = ec.generate_private_key(ec.SECP256R1())
         self.shred_public_key = self.shred_private_key.public_key()
         for _ in range(self.num_splits):
-            private_key = ec.generate_private_key(ec.SECP256R1())
-            self.shred_key_splits.append(KeySplit(private_key))
+            keysplit = KeySplit()
+            self.shred_key_splits.append(keysplit)
 
     def generate_and_split_initial_key(self):
         shred_key = secrets.token_bytes(32)  # Generate Shred-256 key
@@ -170,7 +216,8 @@ class ShredCipher:
     def _encrypt_with_shred(self, shred_key):
         encrypted_key = b''
         for keysplit in self.shred_key_splits:
-            private_key, public_key = keysplit.private_key, keysplit.public_key
+            private_key = keysplit.private_key
+            public_key = keysplit.public_key
             shared_secret = private_key.exchange(ec.ECDH(), public_key)
             derived_key = HKDF(
                 algorithm=hashes.SHA256(),
@@ -186,72 +233,79 @@ class ShredCipher:
 
     def _split_key(self, encrypted_key):
         subkey_length = len(encrypted_key) // self.num_splits
-        self.subkey_shred_keys = [encrypted_key[i * subkey_length: (i + 1) * subkey_length] for i in range(self.num_splits)]
+        self.subkey_shred_keys = [
+            encrypted_key[i * subkey_length: (i + 1) * subkey_length]
+            for i in range(self.num_splits)
+        ]
 
     def generate_qubit_identifiers(self):
         for i in range(self.num_splits):
             public_qubit = Qubit(label=f"public indicator {i+1}")
             private_qubit = Qubit(label=f"private indicator {i+1}")
-            public_qubit.apply_hadamard()
-            private_qubit.apply_hadamard()
             theta_public = secrets.SystemRandom().uniform(0, 2 * np.pi)
             theta_private = secrets.SystemRandom().uniform(0, 2 * np.pi)
+            public_qubit.apply_hadamard()
+            private_qubit.apply_hadamard()
             public_qubit.phase_gate(theta_public)
             private_qubit.phase_gate(theta_private)
             self.qubit_identifiers[i] = {'public': public_qubit, 'private': private_qubit}
-            public_qubit.entangle(private_qubit)
+            public_qubit.entangle_with_private(private_qubit)
 
     def custom_dh(self, subkey_indices, measurements=None):
         num_subkeys = len(subkey_indices)
         partial_secrets = []
         measurement_results = measurements or {}
 
+        # Step 1: Cyclic Entanglement and Measurement
         for i in range(num_subkeys):
-            subkey_a_index = subkey_indices[i]
-            subkey_b_index = subkey_indices[(i + 1) % num_subkeys]  # Circular neighbor
+            pub_idx = subkey_indices[i]
+            priv_idx = subkey_indices[(i + 1) % num_subkeys]
 
-            public_a = self.qubit_identifiers[subkey_a_index]['public']
-            public_b = self.qubit_identifiers[subkey_b_index]['public']
-            public_a.disentangle()
-            public_b.disentangle()
-            public_a.entangle(public_b)
+            public_qubit = self.qubit_identifiers[pub_idx]['public']
+            private_qubit = self.qubit_identifiers[priv_idx]['private']
 
+            # Entangle public qubit with the next private qubit in the cycle
+            public_qubit.entangle_with_private(private_qubit)
+
+            # Perform measurement
             if measurements is None:
-                measurement_a = public_a.measure()
-                measurement_b = public_b.measure()
-                measurement_results[subkey_a_index] = (measurement_a, measurement_b)
+                measurement = public_qubit.measure()
+                measurement_results[pub_idx] = measurement
             else:
-                measurement_a, measurement_b = measurement_results[subkey_a_index]
+                measurement = measurement_results[pub_idx]
+                # Set the public qubit's state based on the measurement
+                if measurement == 0:
+                    public_qubit.state = np.array([1, 0], dtype=np.complex128)
+                else:
+                    public_qubit.state = np.array([0, 1], dtype=np.complex128)
+                # Collapse the private qubit's state
+                if public_qubit.private_entangled_partner:
+                    public_qubit.private_entangled_partner.state = public_qubit.state.copy()
 
-            public_a.entangle(self.qubit_identifiers[subkey_a_index]['private'])
-            public_b.entangle(self.qubit_identifiers[subkey_b_index]['private'])
+            # Disentangle public qubit from the cycled private qubit
+            public_qubit.disentangle_private()
 
-            subkey_a = self.subkey_shred_keys[subkey_a_index]
-            subkey_b = self.subkey_shred_keys[subkey_b_index]
+            # Generate P and Q for Diffie-Hellman based on the measurement
+            public_subkey = self.subkey_shred_keys[pub_idx]
+            private_subkey = self.subkey_shred_keys[priv_idx]
+            p = self.get_prime_from_subkey(public_subkey)
+            q = self.get_generator_from_subkey(private_subkey, p)
 
-            # Use the salt from the KeySplit object
-            salt_a = self.shred_key_splits[subkey_a_index].salt
-            salt_b = self.shred_key_splits[subkey_b_index].salt
+            # Deterministically derive private_value
+            private_value_seed = hashlib.sha256(private_subkey + bytes([measurement])).digest()
+            private_value = int.from_bytes(private_value_seed, 'big') % (p - 2) + 1
 
-            partial_secret = hashlib.sha256(
-                subkey_a + subkey_b + bytes([measurement_a, measurement_b]) + salt_a + salt_b
-            ).digest()
+            public_value = pow(q, private_value, p)
+
+            # Simulate exchange of public values
+            shared_secret = pow(public_value, private_value, p)
+            shared_secret_bytes = shared_secret.to_bytes((shared_secret.bit_length() + 7) // 8, 'big')
+
+            # Hash the measurement with shared secret
+            partial_secret = hashlib.sha256(shared_secret_bytes + bytes([measurement])).digest()
             partial_secrets.append(partial_secret)
 
-            public_a.disentangle()
-            public_a.entangle(self.qubit_identifiers[subkey_a_index]['private'])
-
-            if measurements is None:
-                self_measurement_a = public_a.measure()
-                measurement_results[f'self_{subkey_a_index}'] = self_measurement_a
-            else:
-                self_measurement_a = measurement_results[f'self_{subkey_a_index}']
-
-            partial_secret_self = hashlib.sha256(
-                subkey_a + bytes([self_measurement_a]) + salt_a
-            ).digest()
-            partial_secrets.append(partial_secret_self)
-
+        # Step 2: Combine all partial secrets to form the cumulative secret
         cumulative_secret = hashlib.sha256(b''.join(partial_secrets)).digest()
 
         # Combine all salts from the used KeySplits
@@ -261,19 +315,43 @@ class ShredCipher:
             algorithm=hashes.SHA256(),
             length=32,
             salt=combined_salt,
-            info=b'quantum-derived'
+            info=b'quantum-dh'
         ).derive(cumulative_secret)
 
-        # After completing the DH process, reset all qubits back into superposition and entangle them
+        # Step 3: Re-Entangle Public Qubits with Their Own Private Qubits
         for i in subkey_indices:
-            self.qubit_identifiers[i]['public'].put_back_in_superposition()
-            self.qubit_identifiers[i]['private'].put_back_in_superposition()
-            self.qubit_identifiers[i]['public'].entangle(self.qubit_identifiers[i]['private'])
+            public_qubit = self.qubit_identifiers[i]['public']
+            private_qubit = self.qubit_identifiers[i]['private']
+
+            # Disentangle if necessary
+            public_qubit.disentangle_private()
+            private_qubit.disentangle_private()
+
+            # Reset qubits
+            public_qubit.put_back_in_superposition()
+            private_qubit.put_back_in_superposition()
+
+            # Re-entangle public qubit with its own private qubit
+            public_qubit.entangle_with_private(private_qubit)
 
         return master_key, measurement_results  # Return measurement results
 
+    def get_prime_from_subkey(self, subkey):
+        subkey_hash = hashlib.sha256(subkey).hexdigest()
+        prime_candidate = int(subkey_hash, 16)
+        return nextprime(prime_candidate)
+
+    def get_generator_from_subkey(self, subkey, p):
+        subkey_hash = hashlib.sha256(subkey).hexdigest()
+        g_candidate = int(subkey_hash, 16) % p
+        if g_candidate <= 1:
+            return 2
+        return g_candidate
+
     def encrypt(self, data, subkey_indices=None, use_quantum=True):
-        master_key, measurement_results = self.custom_dh(subkey_indices)  # Use the DH-generated master key
+        if subkey_indices is None:
+            subkey_indices = list(range(self.num_splits))
+        master_key, measurement_results = self.custom_dh(subkey_indices, measurements=None)
         nonce = os.urandom(12)  # AES-GCM nonce size
         aesgcm = AESGCM(master_key)
         ciphertext = aesgcm.encrypt(nonce, data, None)
@@ -285,7 +363,11 @@ class ShredCipher:
         return ciphertext, nonce, xmss_signature, measurement_results
 
     def decrypt(self, ciphertext, nonce, xmss_signature, subkey_indices=None, measurements=None, use_quantum=True):
-        master_key, _ = self.custom_dh(subkey_indices, measurements=measurements)  # Use the same measurements
+        if subkey_indices is None:
+            subkey_indices = list(range(self.num_splits))
+        if measurements is None:
+            raise ValueError("Measurements must be provided for decryption.")
+        master_key, _ = self.custom_dh(subkey_indices, measurements=measurements)
         aesgcm = AESGCM(master_key)
         decrypted_data = aesgcm.decrypt(nonce, ciphertext, None)
 
@@ -303,7 +385,6 @@ class ShredCipher:
         print("Assembled key cleared from memory.")
 
 # --- File Output Functions using Binary format ---
-
 def save_to_bin_file(filename, ciphertext, nonce, xmss_signature, measurement_results):
     with open(filename, 'wb') as f:
         # Serialize using pickle to handle complex data
@@ -319,19 +400,20 @@ def load_from_bin_file(filename):
     with open(filename, 'rb') as f:
         # Deserialize using pickle
         data = pickle.load(f)
-    
+
     ciphertext = data['ciphertext']
     nonce = data['nonce']
     xmss_signature = data['xmss_signature']
     measurement_results = data['measurement_results']
-    
+
     return ciphertext, nonce, xmss_signature, measurement_results
 
 # --- Example Usage ---
 
 def main():
+    # Encryption
     cipher = ShredCipher()
-    subkey_indices = [0, 1, 3, 5, 6]  # Example subkeys
+    subkey_indices = [0, 1, 2,7]  # Example subkeys for A, B, C
     message = b"This update is a hot fix for salts and entanglement which also includes binary file I/O!"
 
     print("\nEncrypting message...")
@@ -340,6 +422,36 @@ def main():
 
     # Save the results to a binary file
     save_to_bin_file('encrypted_data.bin', encrypted_message, nonce, xmss_signature, measurement_results)
+
+    # Save the cipher's state (serialize keys)
+    with open('cipher_state.pkl', 'wb') as f:
+        # Serialize KeySplit objects
+        shred_key_splits_serialized = [keysplit.serialize() for keysplit in cipher.shred_key_splits]
+        # Serialize XMSS
+        xmss_serialized = pickle.dumps(cipher.xmss)
+        # Save other necessary state
+        pickle.dump({
+            'shred_key_splits': shred_key_splits_serialized,
+            'subkey_shred_keys': cipher.subkey_shred_keys,
+            'xmss_serialized': xmss_serialized
+        }, f)
+
+    # Decryption
+    # Load the cipher's state
+    with open('cipher_state.pkl', 'rb') as f:
+        cipher_state = pickle.load(f)
+
+    # Deserialize KeySplit objects
+    shred_key_splits = [KeySplit.deserialize(data) for data in cipher_state['shred_key_splits']]
+    # Deserialize XMSS
+    xmss = pickle.loads(cipher_state['xmss_serialized'])
+
+    # Create a new cipher instance and load the state
+    cipher = ShredCipher(
+        shred_key_splits=shred_key_splits,
+        subkey_shred_keys=cipher_state['subkey_shred_keys'],
+        xmss=xmss
+    )
 
     # Load the results from the binary file
     loaded_encrypted_message, loaded_nonce, loaded_xmss_signature, loaded_measurement_results = load_from_bin_file('encrypted_data.bin')
