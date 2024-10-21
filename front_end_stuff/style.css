@@ -1,1 +1,51 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+    margin: 0;
+    padding: 0;
+}
 
+.screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+}
+
+.hidden {
+    display: none; /* This hides the element */
+}
+
+input {
+    width: 80%;
+    padding: 10px;
+    margin: 10px;
+    font-size: 16px;
+}
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    margin-top: 20px;
+}
+
+img {
+    max-width: 100%;  /* Ensures the image doesn't exceed the screen width */
+    height: auto;     /* Adjusts height automatically to maintain aspect ratio */
+    display: block;   /* Centers the image */
+    margin: 20px auto;  /* Adds space around the image and centers it */
+}
+
+#image-container {
+    position: relative;
+    display: inline-block;
+}
+
+.red-dot {
+    width: 10px;
+    height: 10px;
+    background-color: red;
+    border-radius: 50%;
+    position: absolute;
+}
