@@ -1,1 +1,28 @@
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile App</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Sign-In Screen -->
+    <div id="login-screen" class="screen">
+        <h1>Sign In</h1>
+        <input type="email" id="email" placeholder="Email" required>
+        <input type="password" id="password" placeholder="Password" required>
+        <button onclick="login()">Sign In</button>
+    </div>
 
+    <!-- Main App Screen (Initially Hidden) -->
+    <div id="main-screen" class="screen hidden">
+        <h1>Welcome</h1>
+        <div id="image-container" style="position: relative;">
+            <img id="map-image" src="CCCRiverMap24-WPhotos.jpeg" alt="Your Image" style="max-width: 100%; height: auto;">
+        </div>
+        <button onclick="sendLocation()">Send Location</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
