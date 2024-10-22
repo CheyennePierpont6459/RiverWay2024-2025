@@ -39,3 +39,9 @@ document.getElementById('map-image').addEventListener('click', function(event) {
     // Append the red dot to the image container
     imageContainer.appendChild(redDot);
 });
+
+// Function to simulate sending location
+function sendLocation() {
+    // Simulate sending location
+    alert("Location sent!");
+}
