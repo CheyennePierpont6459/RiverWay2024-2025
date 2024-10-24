@@ -6,3 +6,5 @@ It also can be forwarded to emergency services If needed. Making getting to them
 This is the map that Cave Country Canoes has kindly provided us and will be used inside the app
 
 ![CCCRiverMap24-WPhotos](https://github.com/user-attachments/assets/ab598f57-71a4-4994-bcfb-62147c696194)
+
+![Untitled design (14)](https://github.com/user-attachments/assets/a7845a40-f220-4ad3-8e5b-47bf9313c4f9)
