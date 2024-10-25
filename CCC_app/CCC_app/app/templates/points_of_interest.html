@@ -1,0 +1,14 @@
+﻿<!-- templates/points_of_interest.html -->
+{% extends "base.html" %}
+{% block title %}Points of Interest{% endblock %}
+{% block content %}
+<h2>Points of Interest</h2>
+<ul>
+    {% for poi in pois %}
+        <li>
+            <strong>{{ poi.Name }}</strong> - {{ poi.Description }}
+            ({{ poi.Latitude }}, {{ poi.Longitude }})
+        </li>
+    {% endfor %}
+</ul>
+{% endblock %}
