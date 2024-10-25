@@ -1,0 +1,16 @@
+﻿{% extends "base.html" %}
+{% block title %}Super Admin Dashboard{% endblock %}
+{% block content %}
+<h1>Welcome, {{ current_user.username }}</h1>
+<p>Super Admin Panel</p>
+<ul>
+    <li><a href="{{ url_for('admin_create_employee') }}">Create Employee Account</a></li>
+    <li><a href="{{ url_for('admin_manage_routes') }}">Manage Routes</a></li>
+    <li><a href="{{ url_for('admin_manage_poi') }}">Manage Points of Interest</a></li>
+    <li><a href="{{ url_for('admin_manage_geofences') }}">Manage Geofences</a></li>
+    <li><a href="{{ url_for('super_admin_manage_permissions') }}">Manage Permissions</a></li>
+    <li><a href="{{ url_for('employee_view_trips') }}">View Trips</a></li>
+    <li><a href="{{ url_for('employee_view_feedback') }}">View Customer Feedback</a></li>
+    <li><a href="{{ url_for('logout') }}">Logout</a></li>
+</ul>
+{% endblock %}
