@@ -1,0 +1,35 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Welcome to the CCC Emergency Map System</h2> 
+
+<p>Please log in or register to continue.</p> 
+
+{% endblock %} 
+
+File: templates/login.html 
+
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Login</h2> 
+
+<form method="post"> 
+
+    {{ form.hidden_tag() }} 
+
+    <label>Email:</label><br> 
+
+    {{ form.email(size=32) }}<br><br> 
+
+    <label>Password:</label><br> 
+
+    {{ form.password(size=32) }}<br><br> 
+
+    {{ form.submit() }} 
+
+</form> 
+
+{% endblock %} 
