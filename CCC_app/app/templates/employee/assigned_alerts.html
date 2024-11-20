@@ -1,0 +1,63 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Assigned Alerts</h2> 
+
+<table> 
+
+    <tr> 
+
+        <th>Alert ID</th> 
+
+        <th>Customer Trip ID</th> 
+
+        <th>Location</th> 
+
+        <th>Severity</th> 
+
+        <th>Status</th> 
+
+        <th>Actions</th> 
+
+    </tr> 
+
+    {% for alert in alerts %} 
+
+    <tr> 
+
+        <td>{{ alert.AlertID }}</td> 
+
+        <td>{{ alert.CustomerTripID }}</td> 
+
+        <td>{{ alert.Latitude }}, {{ alert.Longitude }}</td> 
+
+        <td>{{ alert.SeverityLevel }}</td> 
+
+        <td>{{ alert.Status }}</td> 
+
+        <td> 
+
+            {% if alert.Status != 'Resolved' %} 
+
+            <form method="post" action="{{ url_for('employee.resolve_alert', alert_id=alert.AlertID) }}"> 
+
+                <button type="submit">Resolve</button> 
+
+            </form> 
+
+            {% else %} 
+
+            <span>Resolved</span> 
+
+            {% endif %} 
+
+        </td> 
+
+    </tr> 
+
+    {% endfor %} 
+
+</table> 
+
+{% endblock %}
