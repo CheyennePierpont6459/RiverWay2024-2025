@@ -1,0 +1,39 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Available Trips</h2> 
+
+<table> 
+
+    <tr> 
+
+        <th>Trip ID</th> 
+
+        <th>Route</th> 
+
+        <th>Date</th> 
+
+        <th>Actions</th> 
+
+    </tr> 
+
+    {% for trip in trips %} 
+
+    <tr> 
+
+        <td>{{ trip.TripID }}</td> 
+
+        <td>{{ trip.route.start_location.Name }} to {{ trip.route.end_location.Name }}</td> 
+
+        <td>{{ trip.TripDate.strftime('%Y-%m-%d %H:%M') }}</td> 
+
+        <td><a href="{{ url_for('customer.check_in', trip_id=trip.TripID) }}">Check In</a></td> 
+
+    </tr> 
+
+    {% endfor %} 
+
+</table> 
+
+{% endblock %} 
