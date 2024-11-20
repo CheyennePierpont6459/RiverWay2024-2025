@@ -1,0 +1,43 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Customer Reviews</h2> 
+
+<table> 
+
+    <tr> 
+
+        <th>Feedback ID</th> 
+
+        <th>Customer Trip ID</th> 
+
+        <th>Rating</th> 
+
+        <th>Feedback</th> 
+
+        <th>Timestamp</th> 
+
+    </tr> 
+
+    {% for feedback in reviews %} 
+
+    <tr> 
+
+        <td>{{ feedback.FeedbackID }}</td> 
+
+        <td>{{ feedback.CustomerTripID }}</td> 
+
+        <td>{{ feedback.Rating }}</td> 
+
+        <td>{{ feedback.Feedback }}</td> 
+
+        <td>{{ feedback.Timestamp.strftime('%Y-%m-%d %H:%M') }}</td> 
+
+    </tr> 
+
+    {% endfor %} 
+
+</table> 
+
+{% endblock %} 
