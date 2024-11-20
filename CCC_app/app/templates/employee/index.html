@@ -1,0 +1,21 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Employee Dashboard</h2> 
+
+<ul> 
+
+    <li><a href="{{ url_for('employee.manage_trips') }}">Manage Trips</a></li> 
+
+    <li><a href="{{ url_for('employee.assigned_alerts') }}">Assigned Alerts</a></li> 
+
+    <li><a href="{{ url_for('employee.all_distress_trips') }}">All Distress Trips</a></li> 
+
+    <li><a href="{{ url_for('employee.view_site_details') }}">View Site Details</a></li> 
+
+    <li><a href="{{ url_for('employee.customer_reviews') }}">Customer Reviews</a></li> 
+
+</ul> 
+
+{% endblock %} 
