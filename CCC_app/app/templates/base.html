@@ -1,52 +1,71 @@
-<!-- templates/base.html -->
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>{% block title %}CCC Application{% endblock %}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
-    {% block extra_head %}{% endblock %}
-</head>
-<body>
-    <nav>
-        {% if current_user.is_authenticated %}
-            {% if current_user.AccountType == 'Customer' %}
-                <a href="{{ url_for('customer_dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('emergency_ping') }}">Send Emergency Ping</a>
-                <a href="{{ url_for('points_of_interest') }}">Points of Interest</a>
-                <a href="{{ url_for('leave_review') }}">Leave Review</a>
-                <a href="{{ url_for('logout') }}">Log out</a>
-            {% elif current_user.AccountType == 'Employee' %}
-                <a href="{{ url_for('employee_dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('view_feedback') }}">View Feedback</a>
-                <a href="{{ url_for('create_trip') }}">Create Trip</a>
-                <a href="{{ url_for('logout') }}">Log out</a>
-            {% elif current_user.AccountType == 'Admin' %}
-                <a href="{{ url_for('admin_dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('create_employee') }}">Create Employee</a>
-                <a href="{{ url_for('create_route') }}">Create Route</a>
-                <a href="{{ url_for('create_poi') }}">Create POI</a>
-                <a href="{{ url_for('employee_dashboard') }}">Employee Functions</a>
-                <a href="{{ url_for('logout') }}">Log out</a>
-            {% elif current_user.AccountType == 'Super Admin' %}
-                <a href="{{ url_for('super_admin_dashboard') }}">Dashboard</a>
-                <a href="{{ url_for('admin_dashboard') }}">Admin Functions</a>
-                <a href="{{ url_for('logout') }}">Log out</a>
-            {% endif %}
-        {% else %}
-            <a href="{{ url_for('login') }}">Login</a>
-            <a href="{{ url_for('register') }}">Register</a>
-        {% endif %}
-    </nav>
-    <div class="container">
-        {% with messages = get_flashed_messages(with_categories=true) %}
-          {% if messages %}
-            {% for category, message in messages %}
-              <div class="alert {{ category }}">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-        {% block content %}{% endblock %}
-    </div>
-</body>
-</html>
+<!DOCTYPE html> 
+
+<html lang="en"> 
+
+<head> 
+
+    <meta charset="UTF-8"> 
+
+    <title>CCC Emergency Map System</title> 
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"> 
+
+</head> 
+
+<body> 
+
+    <header> 
+
+        <h1>CCC Emergency Map System</h1> 
+
+        <nav> 
+
+            <a href="{{ url_for('index') }}">Home</a> 
+
+            {% if current_user.is_authenticated %} 
+
+                <span>Welcome, {{ current_user.Username }}!</span> 
+
+                <a href="{{ url_for('dashboard') }}">Dashboard</a> 
+
+                <a href="{{ url_for('logout') }}">Logout</a> 
+
+            {% else %} 
+
+                <a href="{{ url_for('login') }}">Login</a> 
+
+                <a href="{{ url_for('register') }}">Register</a> 
+
+            {% endif %} 
+
+        </nav> 
+
+    </header> 
+
+    <main> 
+
+        {% with messages = get_flashed_messages() %} 
+
+            {% if messages %} 
+
+                <ul class="flashes"> 
+
+                    {% for message in messages %} 
+
+                        <li>{{ message }}</li> 
+
+                    {% endfor %} 
+
+                </ul> 
+
+            {% endif %} 
+
+        {% endwith %} 
+
+        {% block content %}{% endblock %} 
+
+    </main> 
+
+</body> 
+
+</html> 
