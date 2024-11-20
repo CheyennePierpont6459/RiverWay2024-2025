@@ -1,0 +1,65 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Manage Trips</h2> 
+
+<form method="post"> 
+
+    {{ form.hidden_tag() }} 
+
+    <label>Route ID:</label><br> 
+
+    {{ form.route_id() }}<br><br> 
+
+    <label>Trip Type ID:</label><br> 
+
+    {{ form.trip_type_id() }}<br><br> 
+
+    <label>Trip Date (YYYY-MM-DD HH:MM):</label><br> 
+
+    {{ form.trip_date() }}<br><br> 
+
+    <label>Total Distance:</label><br> 
+
+    {{ form.total_distance() }}<br><br> 
+
+    {{ form.submit() }} 
+
+</form> 
+
+<h3>Existing Trips</h3> 
+
+<table> 
+
+    <tr> 
+
+        <th>Trip ID</th> 
+
+        <th>Route</th> 
+
+        <th>Date</th> 
+
+        <th>Total Distance</th> 
+
+    </tr> 
+
+    {% for trip in trips %} 
+
+    <tr> 
+
+        <td>{{ trip.TripID }}</td> 
+
+        <td>{{ trip.route.start_location.Name }} to {{ trip.route.end_location.Name }}</td> 
+
+        <td>{{ trip.TripDate.strftime('%Y-%m-%d %H:%M') }}</td> 
+
+        <td>{{ trip.TotalDistance }}</td> 
+
+    </tr> 
+
+    {% endfor %} 
+
+</table> 
+
+{% endblock %} 
