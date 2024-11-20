@@ -1,0 +1,17 @@
+{% extends 'base.html' %} 
+
+{% block content %} 
+
+<h2>Check In to Trip</h2> 
+
+<p>Are you sure you want to check in to <strong>{{ trip.route.start_location.Name }} to {{ trip.route.end_location.Name }}</strong> on {{ trip.TripDate.strftime('%Y-%m-%d %H:%M') }}?</p> 
+
+<form method="post"> 
+
+    <button type="submit">Yes, Check In</button> 
+
+    <a href="{{ url_for('customer.view_trips') }}">Cancel</a> 
+
+</form> 
+
+{% endblock %} 
