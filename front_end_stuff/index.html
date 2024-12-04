@@ -6,21 +6,37 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <div id="notification" class="hidden"></div>
     <!-- Sign-In Screen -->
     <div id="login-screen" class="screen">
+        <div id="emblem-container" style="position: relative; display: flex; justify-content: center; align-items: center; margin: 0; padding: -20;">
+            <img id="emblem-image" src="logoImage.png" alt="emblem" style="max-width: auto; height: auto; display: block;">
+        </div>
         <h1>Sign In</h1>
         <input type="email" id="email" placeholder="Email" required>
         <input type="password" id="password" placeholder="Password" required>
         <button onclick="login()">Sign In</button>
+        <p>Don't have an account? <a href="signup.html" id="sign-up-link">Sign Up</a></p>
     </div>
 
-    <!-- Main App Screen (Initially Hidden) -->
-    <div id="main-screen" class="screen hidden">
+   <!-- Main App Screen (Initially Hidden) -->
+<div id="main-screen" class="screen hidden">
+    <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 20px;">
         <h1>Welcome</h1>
-        <div id="image-container" style="position: relative;">
-            <img id="map-image" src="CCCRiverMap24-WPhotos.jpeg" alt="Your Image" style="max-width: 100%; height: auto;">
-        </div>
-        <button onclick="sendLocation()">Send Location</button>
+        <button id="menu-button" onclick="toggleSidePanel()">☰</button>
+    </div>
+    <h2 style="font-size: 16px;">Paddlers, remember to be off the water by 8pm!</h2>
+    <div id="image-container" style="position: relative;">
+        <img id="map-image" src="CCCRiverMap24-WPhotos.jpeg" alt="Your Image" style="max-width: 100%; height: auto;">
+    </div>
+    <button onclick="sendLocation()">Send Location</button>
+
+</div>
+    <!-- Side Panel -->
+    <div id="side-panel" class="hidden">
+        <button id="close-panel" onclick="closeSidePanel()">X</button>
+        <button onclick="openSettings()">Settings</button>
+        <button onclick="openMoreInfo()">More Information</button>
     </div>
 
     <script src="script.js"></script>
