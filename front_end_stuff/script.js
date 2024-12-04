@@ -10,6 +10,7 @@ function login() {
 
         // Show the main screen
         document.getElementById('main-screen').classList.remove('hidden');
+        alert("Paddlers, remember to be off the water by 8pm!");
     } else {
         alert("Invalid credentials. Please try again.");
     }
@@ -43,5 +44,51 @@ document.getElementById('map-image').addEventListener('click', function(event) {
 // Function to simulate sending location
 function sendLocation() {
     // Simulate sending location
-    alert("Location sent!");
+    const details = prompt("Enter details about your location:");
+    if (details === null || details.trim() === "") {
+        alert("No location details provided.");
+    } else {
+        alert(`Location sent with details: ${details}`);
+    }
+}
+
+// Function to show a custom notification
+function showNotification(message) {
+    const notification = document.getElementById('notification');
+    notification.textContent = message;
+    notification.classList.remove('hidden');
+}
+
+// Function to handle sign-up
+function signup() {
+    const name = document.getElementById('name').value;
+    const email = document.getElementById('email-signup').value;
+    const password = document.getElementById('password-signup').value;
+
+    // Placeholder: Save the user's information (e.g., send to a server)
+    if (name && email && password) {
+        alert(`Welcome, ${name}! Your account has been created.`);
+        window.location.href = "index.html"; // Redirect to sign-in page
+    } else {
+        alert("Please fill out all fields to sign up.");
+    }
+}
+
+function toggleSidePanel() {
+    console.log("button clicked");
+    const sidePanel = document.getElementById('side-panel');
+    sidePanel.classList.add('show'); // Toggle the "show" class to slide in/out
+}
+
+function openSettings() {
+    alert("Settings will be added soon!");
+}
+
+function openMoreInfo() {
+    alert("Here's more information!");
+}
+
+function closeSidePanel() {
+    const sidePanel = document.getElementById('side-panel');
+    sidePanel.classList.remove('show'); // Remove the "show" class to hide the panel
 }
