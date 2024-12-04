@@ -49,3 +49,107 @@ img {
     border-radius: 50%;
     position: absolute;
 }
+
+#notification {
+    position: fixed;
+    top: 10%;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: #ffcc00;
+    color: #000;
+    padding: 15px 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+    font-size: 16px;
+    font-weight: bold;
+    z-index: 1000;
+    text-align: center;
+}
+
+#notification.hidden {
+    display: none;
+}
+
+/* Style for input fields, buttons, and links remains consistent */
+p {
+    margin-top: 20px;
+    font-size: 14px;
+}
+
+a {
+    color: #007bff;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+#menu-button {
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+#menu-button:hover {
+    background-color: #0056b3;
+}
+
+#side-panel {
+    position: fixed; /* Ensure it stays fixed relative to the viewport */
+    top: 0;          /* Align it to the top of the screen */
+    right: -400px;   /* Hidden off-screen initially */
+    width: 300px;    /* Width of the side panel */
+    height: 100%;    /* Full height of the viewport */
+    background-color: #f8f9fa;
+    box-shadow: -2px 0 5px rgba(0, 0, 0, 0.2);
+    padding: 50px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    align-items: flex-start;
+    transition: right 0.3s ease; /* Smooth sliding effect */
+    z-index: 1000; /* Ensure it stays above other elements */
+}
+
+#side-panel button {
+    margin: 10px 0;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border-radius: 5px;
+    width: 100%;
+    text-align: left;
+}
+
+#side-panel button:hover {
+    background-color: #0056b3;
+}
+
+#side-panel.show {
+    right: 0; /* Slide in from the right */
+}
+
+#close-panel {
+    background-color: transparent;
+    border: none;
+    color: #000;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    position: absolute; /* Position it at the top-right corner of the panel */
+    top: 10px;
+    right: 10px;
+    z-index: 10; /* Ensure it is above other elements in the panel */
+}
+
+#close-panel:hover {
+    color: #ff0000; /* Change color on hover for better user feedback */
+}
