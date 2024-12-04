@@ -1,0 +1,2 @@
+python -m http.server 8000
+http://(ip address):8000
