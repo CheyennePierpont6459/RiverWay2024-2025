@@ -1,0 +1,52 @@
+﻿<!-- signup.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up</title>
+</head>
+<body>
+    <h2>Sign Up</h2>
+    <form id="signupForm">
+        <input type="text" id="username" name="username" placeholder="Username" required>
+        <br>
+        <input type="email" id="email" name="email" placeholder="Email" required>
+        <br>
+        <input type="password" id="password" name="password" placeholder="Password" required>
+        <br>
+        <input type="text" id="phone_number" name="phone_number" placeholder="Phone Number" required>
+        <br>
+        <button type="submit">Sign Up</button>
+    </form>
+
+    <div id="message" style="color: red; margin-top: 10px;"></div>
+
+    <script>
+        document.getElementById("signupForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const username = document.getElementById("username").value;
+            const email = document.getElementById("email").value;
+            const password = document.getElementById("password").value;
+            const phone_number = document.getElementById("phone_number").value;
+
+            const response = await fetch("/api/signup", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({ username, email, password, phone_number }),
+            });
+
+            const data = await response.json();
+            if (!data.success) {
+                document.getElementById("message").textContent = data.message;
+            } else {
+                document.getElementById("message").textContent = "Account created successfully!";
+                // Redirect or handle successful signup
+            }
+        });
+    </script>
+</body>
+</html>

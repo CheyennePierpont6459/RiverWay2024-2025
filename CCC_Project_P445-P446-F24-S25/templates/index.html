@@ -1,0 +1,7 @@
+﻿<!-- templates/index.html -->
+
+{% extends "base.html" %}
+{% block content %}
+<h1>Welcome to the Flask Application</h1>
+<p>Please <a href="{{ url_for('login_page') }}">Login</a> or <a href="{{ url_for('signup_page') }}">Sign Up</a> to continue.</p>
+{% endblock %}
