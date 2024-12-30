@@ -3,18 +3,18 @@
 document.addEventListener('DOMContentLoaded', () => {
   // Helper function to handle logout
   function handleLogout() {
-    const logoutLink = document.getElementById('logoutLink');
-    if (logoutLink) {
-      logoutLink.addEventListener('click', function(e) {
+    const logoutBtn = document.querySelector('form[action="{{ url_for(\'api_logout\') }}"] button[type="submit"]');
+    if (logoutBtn) {
+      logoutBtn.addEventListener('click', function(e) {
         e.preventDefault();
         fetch('/api/logout', {
           method: 'POST',
-          credentials: 'include' // Include cookies if needed
+          //credentials: 'include' // Include cookies if needed
         })
           .then(res => res.json())
           .then(data => {
             if (data.success) {
-              window.location.href = "/login_page"; // Redirect to login page
+              window.location.href = "/"; // Redirect to home page
             } else {
               alert(data.message);
             }
@@ -26,7 +26,81 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 
-  // Login Form Handling
+  // Initialize Logout Button
+  handleLogout();
+
+  // Login Pane Handling (Public Pages)
+  const openLoginBtn = document.getElementById('openLoginPane');
+  const loginPane = document.getElementById('loginPane');
+  const modalOverlay = document.getElementById('modalOverlay');
+  const closeLoginBtn = document.getElementById('closeLoginPane');
+  const fixedLoginForm = document.getElementById('fixedLoginForm');
+  const loginResult = document.getElementById('loginResult');
+
+  // Function to show the login pane
+  function showLoginPane() {
+    if (modalOverlay && loginPane) {
+      modalOverlay.classList.add('active');
+      loginPane.classList.add('active');
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+  }
+
+  // Function to hide the login pane
+  function hideLoginPane() {
+    if (modalOverlay && loginPane) {
+      modalOverlay.classList.remove('active');
+      loginPane.classList.remove('active');
+      document.body.style.overflow = ''; // Restore scrolling
+    }
+  }
+
+  // Event listeners for opening and closing the login pane
+  if (openLoginBtn) {
+    openLoginBtn.addEventListener('click', function(e) {
+      e.preventDefault();
+      showLoginPane();
+    });
+  }
+
+  if (closeLoginBtn) {
+    closeLoginBtn.addEventListener('click', hideLoginPane);
+  }
+
+  if (modalOverlay) {
+    modalOverlay.addEventListener('click', hideLoginPane);
+  }
+
+  // Login Form Submission Handling
+  if (fixedLoginForm) {
+    fixedLoginForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      const email = document.getElementById('fixedEmail').value.trim();
+      const password = document.getElementById('fixedPassword').value.trim();
+
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include', // Include cookies if needed
+        body: JSON.stringify({ email, password })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          loginResult.innerHTML = `<p class="text-success">${data.message}</p>`;
+          hideLoginPane();
+          window.location.href = "/customer_dashboard"; // Redirect to dashboard
+        } else {
+          loginResult.innerHTML = `<p class="text-danger">${data.message}</p>`;
+        }
+      })
+      .catch(err => {
+        loginResult.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
+      });
+    });
+  }
+
+  // Login Form Handling (Existing)
   const loginForm = document.getElementById('loginForm');
   if (loginForm) {
     loginForm.addEventListener('submit', function(e) {
@@ -44,18 +118,18 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         const resultDiv = document.getElementById('result');
         if (data.success) {
-          resultDiv.innerHTML = `<p class="success">${data.message}</p>`;
+          resultDiv.innerHTML = `<p class="text-success">${data.message}</p>`;
           if (data.account_type === 'customer') {
             window.location.href = "/customer_dashboard"; // Redirect to customer_dashboard
           }
-          // If you have other account types, handle them here
+          // If other account types, handle them here
         } else {
-          resultDiv.innerHTML = `<p class="error">${data.message}</p>`;
+          resultDiv.innerHTML = `<p class="text-danger">${data.message}</p>`;
         }
       })
       .catch(err => {
         const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `<p class="error">An error occurred: ${err.message}</p>`;
+        resultDiv.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
       });
     });
   }
@@ -79,15 +153,15 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         const resultDiv = document.getElementById('result');
         if (data.success) {
-          resultDiv.innerHTML = `<p class="success">${data.message}</p>`;
+          resultDiv.innerHTML = `<p class="text-success">${data.message}</p>`;
           window.location.href = "/login_page"; // Redirect to login page
         } else {
-          resultDiv.innerHTML = `<p class="error">${data.message}</p>`;
+          resultDiv.innerHTML = `<p class="text-danger">${data.message}</p>`;
         }
       })
       .catch(err => {
         const resultDiv = document.getElementById('result');
-        resultDiv.innerHTML = `<p class="error">An error occurred: ${err.message}</p>`;
+        resultDiv.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
       });
     });
   }
@@ -99,7 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
       e.preventDefault();
       const rating_header = document.getElementById('ratingHeader').value.trim();
       const rating_notes = document.getElementById('ratingNotes').value.trim();
-      const rating_value = document.getElementById('ratingValue').value.trim();
+      const rating_value = parseInt(document.getElementById('ratingValue').value.trim(), 10);
 
       fetch('/api/reviews', {
         method: 'POST',
@@ -111,16 +185,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         const reviewResult = document.getElementById('reviewResult');
         if (data.success) {
-          reviewResult.innerHTML = `<p class="success">${data.message}</p>`;
+          reviewResult.innerHTML = `<p class="text-success">${data.message}</p>`;
           loadReviews();
           reviewForm.reset();
         } else {
-          reviewResult.innerHTML = `<p class="error">${data.message}</p>`;
+          reviewResult.innerHTML = `<p class="text-danger">${data.message}</p>`;
         }
       })
       .catch(err => {
         const reviewResult = document.getElementById('reviewResult');
-        reviewResult.innerHTML = `<p class="error">An error occurred: ${err.message}</p>`;
+        reviewResult.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
       });
     });
 
@@ -136,12 +210,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.success) {
             renderReviews(data.reviews);
           } else {
-            reviewList.innerHTML = `<p class="error">${data.message}</p>`;
+            reviewList.innerHTML = `<p class="text-danger">${data.message}</p>`;
           }
         })
         .catch(err => {
           const reviewList = document.getElementById('reviewList');
-          reviewList.innerHTML = `<p class="error">An error occurred: ${err.message}</p>`;
+          reviewList.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
         });
     }
 
@@ -150,9 +224,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!reviews || reviews.length === 0) {
         reviewList.innerHTML = "<p>No reviews yet.</p>";
       } else {
-        let html = "<ul>";
+        let html = "<ul class='list-group'>";
         reviews.forEach(r => {
-          html += `<li><strong>${r.rating_header} (${r.rating_value}/5)</strong><br>${r.rating_notes}</li>`;
+          html += `<li class='list-group-item'><strong>${r.rating_header} (${r.rating_value}/5)</strong><br>${r.rating_notes}</li>`;
         });
         html += "</ul>";
         reviewList.innerHTML = html;
@@ -180,16 +254,16 @@ document.addEventListener('DOMContentLoaded', () => {
       .then(data => {
         const emergencyResult = document.getElementById('emergencyResult');
         if (data.success) {
-          emergencyResult.innerHTML = `<p class="success">${data.message}</p>`;
+          emergencyResult.innerHTML = `<p class="text-success">${data.message}</p>`;
           loadEmergencies();
           emergencyForm.reset();
         } else {
-          emergencyResult.innerHTML = `<p class="error">${data.message}</p>`;
+          emergencyResult.innerHTML = `<p class="text-danger">${data.message}</p>`;
         }
       })
       .catch(err => {
         const emergencyResult = document.getElementById('emergencyResult');
-        emergencyResult.innerHTML = `<p class="error">An error occurred: ${err.message}</p>`;
+        emergencyResult.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
       });
     });
 
@@ -205,12 +279,12 @@ document.addEventListener('DOMContentLoaded', () => {
           if (data.success) {
             renderEmergencies(data.emergencies);
           } else {
-            emergencyList.innerHTML = `<p class="error">${data.message}</p>`;
+            emergencyList.innerHTML = `<p class="text-danger">${data.message}</p>`;
           }
         })
         .catch(err => {
           const emergencyList = document.getElementById('emergencyList');
-          emergencyList.innerHTML = `<p class="error">An error occurred: ${err.message}</p>`;
+          emergencyList.innerHTML = `<p class="text-danger">An error occurred: ${err.message}</p>`;
         });
     }
 
@@ -219,9 +293,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!emergencies || emergencies.length === 0) {
         emergencyList.innerHTML = "<p>No emergency logs yet.</p>";
       } else {
-        let html = "<ul>";
+        let html = "<ul class='list-group'>";
         emergencies.forEach(em => {
-          html += `<li><strong>Location:</strong> ${em.location_details}<br><strong>Distress:</strong> ${em.distress_notes}</li>`;
+          html += `<li class='list-group-item'><strong>Location:</strong> ${em.location_details}<br><strong>Distress:</strong> ${em.distress_notes}</li>`;
         });
         html += "</ul>";
         emergencyList.innerHTML = html;
@@ -230,7 +304,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     loadEmergencies();
   }
-
-  // Initialize Logout Button
-  handleLogout();
 });

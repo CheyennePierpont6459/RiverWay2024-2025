@@ -6,6 +6,20 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Sign Up</title>
+    <style>
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+            background-color: #3498db;
+            border: none;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background-color: #2980b9;
+        }
+    </style>
 </head>
 <body>
     <h2>Sign Up</h2>
@@ -20,6 +34,8 @@
         <br>
         <button type="submit">Sign Up</button>
     </form>
+
+    <button id="loginRedirect">Already have an account? Log In</button>
 
     <div id="message" style="color: red; margin-top: 10px;"></div>
 
@@ -44,8 +60,15 @@
                 document.getElementById("message").textContent = data.message;
             } else {
                 document.getElementById("message").textContent = "Account created successfully!";
-                // Redirect or handle successful signup
+                // Optional: Redirect to the login page after a short delay
+                setTimeout(() => {
+                    window.location.href = "/login_page";
+                }, 2000);
             }
+        });
+
+        document.getElementById("loginRedirect").addEventListener("click", () => {
+            window.location.href = "/login_page"; // Redirect to the login page
         });
     </script>
 </body>
