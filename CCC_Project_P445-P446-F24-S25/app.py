@@ -39,7 +39,7 @@ class DevelopmentConfig(Config):
     DEBUG = True
     DB_HOST = os.getenv("DB_HOST", "localhost")
     DB_USER = os.getenv("DB_USER", "root")
-    DB_PASSWORD = quote_plus(os.getenv("DB_PASSWORD", "Preston-2020"))
+    DB_PASSWORD = quote_plus(os.getenv("DB_PASSWORD", "<put your db password here>"))
     DB_NAME = os.getenv("DB_NAME", "ccc_emergency_map")
     SQLALCHEMY_DATABASE_URI = (
         f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
