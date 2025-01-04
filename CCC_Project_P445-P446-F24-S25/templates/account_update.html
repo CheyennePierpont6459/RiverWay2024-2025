@@ -1,0 +1,47 @@
+﻿{% extends "customer_private.html" %}
+
+{% block content %}
+<h1>Update Account Information</h1>
+<p>You can update your email, password, or phone number below.</p>
+
+<form id="updateAccountForm">
+  <label for="newEmail">New Email:</label><br>
+  <input type="email" id="newEmail" placeholder="Enter new email"><br>
+
+  <label for="newPassword">New Password:</label><br>
+  <input type="password" id="newPassword" placeholder="Enter new password"><br>
+
+  <label for="newPhone">New Phone Number:</label><br>
+  <input type="text" id="newPhone" placeholder="Enter new phone number"><br>
+
+  <button type="submit">Update Account</button>
+</form>
+
+<div id="updateAccountResult"></div>
+
+<script>
+  document.getElementById('updateAccountForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const newEmail = document.getElementById('newEmail').value.trim();
+    const newPassword = document.getElementById('newPassword').value.trim();
+    const newPhone = document.getElementById('newPhone').value.trim();
+
+    const response = await fetch('/update_account', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ new_email: newEmail, new_password: newPassword, new_phone: newPhone })
+    });
+
+    const result = await response.json();
+    const resultDiv = document.getElementById('updateAccountResult');
+    if (result.success) {
+      resultDiv.innerHTML = `<p class="text-success">${result.message}</p>`;
+      setTimeout(() => {
+        window.location.href = "/customer_dashboard"; // Redirect to dashboard
+      }, 2000);
+    } else {
+      resultDiv.innerHTML = `<p class="text-danger">${result.message}</p>`;
+    }
+  });
+</script>
+{% endblock %}

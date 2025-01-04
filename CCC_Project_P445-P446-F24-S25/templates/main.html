@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Emergency Map App - Main</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="notification" class="hidden"></div>
+
+    <div id="main-screen" class="screen">
+        <div style="display: flex; justify-content: space-between; align-items: center; width: 100%; padding: 0 20px;">
+            <h1>Welcome {{ username }}</h1>
+            <button id="menu-button" onclick="toggleSidePanel()">☰</button>
+        </div>
+        <h3 style="font-size: 14px;">Account Type: {{ account_type }}</h3>
+
+        <h2 style="font-size: 16px;">Paddlers, remember to be off the water by 8pm!</h2>
+
+        <div id="image-container" style="position: relative;">
+            <img id="map-image" src="{{ url_for('static', filename='images/CCCRiverMap24-WPhotos.jpeg') }}" alt="River Map">
+        </div>
+
+        <button onclick="sendLocation()">Send Location</button>
+        <button onclick="logEmergency()">Distress Call</button>
+
+        <div id="rating-form" class="hidden">
+            <h3>Rate Your Experience</h3>
+            <input type="text" id="rating-header" placeholder="Rating Title" />
+            <textarea id="rating-notes" placeholder="Share more details..." rows="3"></textarea>
+            <select id="rating-value">
+                <option value="1">1 - Terrible</option>
+                <option value="2">2 - Not Great</option>
+                <option value="3">3 - Average</option>
+                <option value="4">4 - Good</option>
+                <option value="5" selected>5 - Excellent</option>
+            </select>
+            <button onclick="submitRating()">Submit Rating</button>
+        </div>
+        <button onclick="toggleRatingForm()">Rate Experience</button>
+    </div>
+
+    <div id="side-panel" class="hidden">
+        <button id="close-panel" onclick="closeSidePanel()">X</button>
+        <button onclick="openSettings()">Settings</button>
+        <button onclick="openMoreInfo()">More Information</button>
+
+        <div id="account-settings" class="hidden">
+            <h3>Account Settings</h3>
+            <input type="text" id="new-username" placeholder="New Username">
+            <input type="password" id="new-password" placeholder="New Password">
+            <button onclick="updateAccount()">Save Changes</button>
+            <button style="background-color: #dc3545;" onclick="deleteAccount()">Delete Account</button>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
