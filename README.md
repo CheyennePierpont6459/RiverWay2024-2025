@@ -86,6 +86,7 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
     MYSQL_DB=ccc_emergency_map 
 
+
     ``` 
 
     Alternatively, set these variables in your system environment. 
