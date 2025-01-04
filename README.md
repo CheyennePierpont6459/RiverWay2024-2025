@@ -103,14 +103,17 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
         ``` 
 
     - **Initialize Database Migrations** 
+   
+    - Change directory to ~/CCC_Project_P445-P446-F24-S25
 
-        ```bash 
-
-        flask db init 
-
-        flask db migrate -m "Initial migration." 
-
-        flask db upgrade 
+        ```bash
+      python -m flask db init
+      
+      python -m flask db stamp head
+      
+      python -m flask db migrate -m "<description>"
+      
+      python -m flask db upgrade
 
         ``` 
 
@@ -118,11 +121,11 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
     ```bash 
 
-    flask run 
+    python -m flask run 
 
     ``` 
 
-    The application will be accessible at `http://localhost:5000/`. 
+    The application will be accessible at `http://localhost:5000/` or on the localnetwork at http://192.168.X.X:5000 depending on socket capability.
 
 ## Usage 
 
