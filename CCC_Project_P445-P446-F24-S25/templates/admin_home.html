@@ -1,0 +1,16 @@
+﻿{% extends "admin_base.html" %}
+
+{% block content %}
+    <h2>Admin Dashboard Home</h2>
+    <div class="stats">
+        <div style="margin-bottom: 20px;">
+            <h3>System Statistics</h3>
+            <ul>
+                <li>Total Customers: {{ stats.total_customers }}</li>
+                <li>Total Employees: {{ stats.total_employees }}</li>
+                <li>Total Emergencies: {{ stats.total_emergencies }}</li>
+                <li>Unresolved Emergencies: {{ stats.unresolved_emergencies }}</li>
+            </ul>
+        </div>
+    </div>
+{% endblock %}

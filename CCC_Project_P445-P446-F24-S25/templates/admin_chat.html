@@ -1,0 +1,76 @@
+﻿{% extends "admin_base.html" %}
+
+{% block content %}
+    <h2>Admin Chat</h2>
+    <div class="chat-container">
+        <div class="chat-messages" id="chatMessages" style="height: 400px; overflow-y: scroll; border: 1px solid #ddd; padding: 10px; background-color: #fff;">
+            <!-- Chat messages will be loaded here -->
+        </div>
+        <div style="margin-top: 10px;">
+            <input type="text" id="messageInput" placeholder="Type your message here..." style="width: 80%; padding: 10px; border: 1px solid #ccc; border-radius: 4px;">
+            <button onclick="sendMessage()" style="padding: 10px 15px; background-color: #2c3e50; color: white; border: none; border-radius: 4px; cursor: pointer;">Send</button>
+            <button onclick="leaveChat()" style="padding: 10px 15px; background-color: #c0392b; color: white; border: none; border-radius: 4px; cursor: pointer;">Leave Chat</button>
+        </div>
+    </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const chatMessages = document.getElementById('chatMessages');
+    const messageInput = document.getElementById('messageInput');
+
+    // Function to fetch and display messages
+    async function fetchMessages() {
+        const response = await fetch('/api/chat/messages');
+        const data = await response.json();
+        if (data.success) {
+            chatMessages.innerHTML = '';
+            data.messages.forEach(msg => {
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('message');
+                msgDiv.style.marginBottom = '10px';
+                msgDiv.innerHTML = `<strong>[${msg.timestamp}] ${msg.username}:</strong> ${msg.message}`;
+                chatMessages.appendChild(msgDiv);
+            });
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    }
+
+    // Function to send a message
+    async function sendMessage() {
+        const message = messageInput.value.trim();
+        if (message === '') return;
+
+        const response = await fetch('/api/chat/messages', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ message }),
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            messageInput.value = '';
+            fetchMessages();
+        } else {
+            alert(data.message);
+        }
+    }
+
+    // Initial fetch of messages
+    fetchMessages();
+    // Fetch messages every 5 seconds
+    setInterval(fetchMessages, 5000);
+
+    // Function to leave chat
+    function leaveChat() {
+        window.location.href = "{{ url_for('admin_home') }}";
+    }
+
+    // Handle leaving the chat via browser navigation (optional)
+    window.addEventListener('beforeunload', function (e) {
+        // Optional: Implement any server-side logout if needed
+    });
+</script>
+{% endblock %}

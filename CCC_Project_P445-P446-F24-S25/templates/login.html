@@ -1,0 +1,60 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Login</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <div class="login-container">
+    <h1>Login</h1>
+    <form id="loginForm">
+      <label for="emailField">Email:</label>
+      <input type="email" id="emailField" name="email" required>
+
+      <label for="passwordField">Password:</label>
+      <input type="password" id="passwordField" name="password" required>
+
+      <button type="submit">Sign In</button>
+    </form>
+
+    <p>Don't have an account? <a href="/signup_page">Sign Up</a></p>
+    <!-- Forgot Password Link -->
+    <p><a href="/forgot_password">Forgot Password?</a></p>
+
+    <div id="result"></div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const loginForm = document.getElementById('loginForm');
+      loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = document.getElementById('emailField').value.trim();
+        const password = document.getElementById('passwordField').value.trim();
+
+        try {
+          const response = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const data = await response.json();
+          if (data.success) {
+            document.getElementById('result').innerHTML =
+              `<p style="color:green;">${data.message}</p>`;
+            // Redirect to dashboard after a brief pause
+            setTimeout(() => window.location.href = "/customer_dashboard", 1000);
+          } else {
+            document.getElementById('result').innerHTML =
+              `<p style="color:red;">${data.message}</p>`;
+          }
+        } catch (error) {
+          document.getElementById('result').innerHTML =
+            `<p style="color:red;">Error: ${error.message}</p>`;
+        }
+      });
+    });
+  </script>
+</body>
+</html>
