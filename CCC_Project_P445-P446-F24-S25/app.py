@@ -92,9 +92,7 @@ app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
 mail = Mail(app)
 
-# Rate Limiter FIX:
-# Pass `key_func` only once, and remove the `app` from the constructor.
-# Then initialize the limiter with `init_app(app)`.
+# Rate Limiter
 limiter = Limiter(
     key_func=get_remote_address,
     default_limits=["200 per day", "50 per hour"]
@@ -245,7 +243,10 @@ def login_page():
     if current_user.is_authenticated:
         if current_user.account_type == "admin":
             return redirect(url_for("admin_home"))
-        return redirect(url_for("customer_dashboard"))
+        elif current_user.account_type == "customer":
+            return redirect(url_for("customer_dashboard"))
+        elif current_user.account_type == "employee":
+            return redirect(url_for("employee_dashboard"))
     return render_template("login.html")
 
 
@@ -254,23 +255,58 @@ def signup_page():
     if current_user.is_authenticated:
         if current_user.account_type == "admin":
             return redirect(url_for("admin_home"))
-        return redirect(url_for("customer_dashboard"))
+        elif current_user.account_type == "customer":
+            return redirect(url_for("customer_dashboard"))
+        elif current_user.account_type == "employee":
+            return redirect(url_for("employee_dashboard"))
     return render_template("signup.html")
 
 
 @app.route("/customer_dashboard")
 @login_required
 def customer_dashboard():
-    if current_user.account_type != "customer":
+    if current_user.account_type == "customer":
+        return render_template("customer_dashboard.html", username=current_user.username)
+    elif current_user.account_type == "admin":
         return redirect(url_for("admin_home"))
-    return render_template("customer_dashboard.html", username=current_user.username)
+    else:
+        # Employee
+        return redirect(url_for("employee_dashboard"))
+
+
+@app.route("/employee_dashboard")
+@login_required
+def employee_dashboard():
+    """
+    A minimal Employee Dashboard so employees can see their assigned emergencies.
+    """
+    if current_user.account_type != "employee":
+        if current_user.account_type == "admin":
+            return redirect(url_for("admin_home"))
+        elif current_user.account_type == "customer":
+            return redirect(url_for("customer_dashboard"))
+        else:
+            return redirect(url_for("login_page"))
+    # Fetch all emergencies assigned to the current employee
+    assigned_emergencies = Emergencies.query.filter(
+        Emergencies.distress_notes.like(f"%[ASSIGNED_EMPLOYEE={current_user.user_id}]%")
+    ).all()
+
+    return render_template(
+        "employee_dashboard.html",
+        username=current_user.username,
+        emergencies=assigned_emergencies
+    )
 
 
 @app.route("/reviews_page")
 @login_required
 def reviews_page():
     if current_user.account_type != "customer":
-        return redirect(url_for("index"))
+        if current_user.account_type == "admin":
+            return redirect(url_for("admin_home"))
+        else:
+            return redirect(url_for("employee_dashboard"))
     return render_template("customer_reviews.html")
 
 
@@ -278,7 +314,10 @@ def reviews_page():
 @login_required
 def submit_log_page():
     if current_user.account_type != "customer":
-        return redirect(url_for("index"))
+        if current_user.account_type == "admin":
+            return redirect(url_for("admin_home"))
+        else:
+            return redirect(url_for("employee_dashboard"))
     return render_template("customer_submit_log.html")
 
 
@@ -296,9 +335,10 @@ def chat():
 @login_required
 def admin_home():
     if current_user.account_type != "admin":
-        return redirect(url_for("index"))
+        if current_user.account_type == "employee":
+            return redirect(url_for("employee_dashboard"))
+        return redirect(url_for("customer_dashboard"))
 
-    # Example statistics (you can customize these)
     total_customers = Users.query.filter_by(account_type="customer").count()
     total_employees = Users.query.filter_by(account_type="employee").count()
     total_emergencies = Emergencies.query.count()
@@ -320,7 +360,9 @@ def admin_home():
 @login_required
 def admin_manage_employees():
     if current_user.account_type != "admin":
-        return redirect(url_for("index"))
+        if current_user.account_type == "employee":
+            return redirect(url_for("employee_dashboard"))
+        return redirect(url_for("customer_dashboard"))
 
     employees = Users.query.filter_by(account_type="employee").all()
     return render_template("admin_manage_employees.html", employees=employees)
@@ -330,7 +372,9 @@ def admin_manage_employees():
 @login_required
 def admin_manage_emergencies():
     if current_user.account_type != "admin":
-        return redirect(url_for("index"))
+        if current_user.account_type == "employee":
+            return redirect(url_for("employee_dashboard"))
+        return redirect(url_for("customer_dashboard"))
 
     all_ems = Emergencies.query.all()
     employees = Users.query.filter_by(account_type="employee").all()
@@ -364,7 +408,9 @@ def admin_manage_emergencies():
 @login_required
 def admin_chat():
     if current_user.account_type != "admin":
-        return redirect(url_for("index"))
+        if current_user.account_type == "employee":
+            return redirect(url_for("employee_dashboard"))
+        return redirect(url_for("customer_dashboard"))
     return render_template("admin_chat.html", username=current_user.username, account_type=current_user.account_type)
 
 
@@ -408,7 +454,7 @@ def api_signup():
 
 
 @app.route("/api/login", methods=["POST"])
-@limiter.limit("10 per minute")  # Rate limit login attempts
+@limiter.limit("10 per minute")
 def api_login():
     data = request.get_json()
     email = data.get("email")
@@ -432,10 +478,6 @@ def api_login():
 @app.route("/api/logout", methods=["GET", "POST"])
 @login_required
 def logout():
-    """
-    Logout route that logs out the current user and redirects them
-    based on their account type.
-    """
     logout_user()
     session.clear()
     return redirect(url_for("login_page"))
@@ -616,7 +658,7 @@ def account_update():
 
 @app.route("/api/reviews", methods=["GET", "POST"])
 @login_required
-@limiter.limit("20 per hour")  # Rate limit reviews submissions
+@limiter.limit("20 per hour")
 def api_reviews():
     if current_user.account_type != "customer":
         return jsonify({"success": False, "message": "Unauthorized."}), 403
@@ -669,7 +711,7 @@ def api_reviews():
 
 @app.route("/api/emergency", methods=["GET", "POST"])
 @login_required
-@limiter.limit("30 per hour")  # Rate limit emergency submissions
+@limiter.limit("30 per hour")
 def api_emergency():
     if current_user.account_type != "customer":
         return jsonify({"success": False, "message": "Unauthorized."}), 403
@@ -714,7 +756,7 @@ def api_emergency():
 
 @app.route("/api/chat/messages", methods=["GET", "POST"])
 @login_required
-@limiter.limit("100 per hour")  # Rate limit chat messages
+@limiter.limit("100 per hour")
 def api_chat_messages():
     if request.method == "POST":
         data = request.get_json()
@@ -750,7 +792,7 @@ def api_chat_messages():
 
 @app.route("/api/admin/create_employee", methods=["POST"])
 @login_required
-@limiter.limit("5 per minute")  # Rate limit employee creation
+@limiter.limit("5 per minute")
 def admin_create_employee():
     if current_user.account_type != "admin":
         return jsonify({"success": False, "message": "Unauthorized. Admin only."}), 403
@@ -794,7 +836,7 @@ def admin_create_employee():
 
 @app.route("/api/admin/assign_emergency", methods=["POST"])
 @login_required
-@limiter.limit("10 per minute")  # Example rate limit
+@limiter.limit("10 per minute")
 def admin_assign_emergency():
     if current_user.account_type != "admin":
         return jsonify({"success": False, "message": "Unauthorized. Admin only."}), 403
@@ -826,7 +868,7 @@ def admin_assign_emergency():
 
         customer_user = db.session.get(Users, emergency.user_id)
 
-        # Send assignment emails with emergency log details
+        # Send assignment emails
         send_assignment_email_to_employee(
             employee=employee_user,
             customer=customer_user,
@@ -855,7 +897,7 @@ def admin_assign_emergency():
 
 @app.route("/api/admin/unassign_emergency", methods=["POST"])
 @login_required
-@limiter.limit("10 per minute")  # Example rate limit
+@limiter.limit("10 per minute")
 def admin_unassign_emergency():
     if current_user.account_type != "admin":
         return jsonify({"success": False, "message": "Unauthorized. Admin only."}), 403
@@ -910,7 +952,7 @@ def admin_unassign_emergency():
 
 @app.route("/api/admin/delete_employee", methods=["POST"])
 @login_required
-@limiter.limit("5 per minute")  # Rate limit employee deletion
+@limiter.limit("5 per minute")
 def admin_delete_employee():
     if current_user.account_type != "admin":
         return jsonify({"success": False, "message": "Unauthorized. Admin only."}), 403
@@ -949,7 +991,7 @@ def admin_delete_employee():
 
 @app.route("/api/delete_account", methods=["POST"])
 @login_required
-@limiter.limit("2 per hour")  # Rate limit account deletions
+@limiter.limit("2 per hour")
 def api_delete_account():
     try:
         user_id = current_user.user_id
@@ -977,14 +1019,13 @@ def api_delete_account():
 ##############################
 
 @app.route("/admin_setup", methods=["GET", "POST"])
-@limiter.limit("1 per day")  # Limit admin setup attempts
+@limiter.limit("1 per day")
 def admin_setup():
     """
     This route allows the creation of the first admin account.
     If an admin already exists, it flashes a message with admin email(s) and redirects to login.
     Otherwise, it allows creating a new admin account by verifying the root password.
     """
-    # Check if any admin exists
     existing_admin = Users.query.filter_by(account_type="admin").first()
     if existing_admin:
         # Admin exists, retrieve all admin emails
@@ -995,25 +1036,21 @@ def admin_setup():
         return redirect(url_for("login_page"))
 
     if request.method == "POST":
-        # User submitted the admin setup form
         username = request.form.get("username", "").strip()
         email = request.form.get("email", "").strip()
         password = request.form.get("password", "").strip()
         phone_number = request.form.get("phone_number", "").strip()
         root_password = request.form.get("root_password", "").strip()
 
-        # Validate form inputs
         if not username or not email or not password or not phone_number or not root_password:
             flash("All fields are required.", "error")
             return redirect(url_for("admin_setup"))
 
-        # Verify root password
         expected_root_password = os.getenv("ADMIN_SETUP_PASSWORD", "")
         if root_password != expected_root_password:
             flash("Invalid root password.", "error")
             return redirect(url_for("admin_setup"))
 
-        # Check if username or email already exists
         if Users.query.filter_by(username=username).first():
             flash("Username already exists!", "error")
             return redirect(url_for("admin_setup"))
@@ -1021,7 +1058,6 @@ def admin_setup():
             flash("Email already registered.", "error")
             return redirect(url_for("admin_setup"))
 
-        # Create the admin user
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
         new_admin = Users(
             username=username,
@@ -1040,7 +1076,6 @@ def admin_setup():
             flash(f"Database error: {e}", "error")
             return redirect(url_for("admin_setup"))
 
-    # If GET request, render the admin setup form
     return render_template("admin_setup.html")
 
 
@@ -1201,5 +1236,5 @@ def get_local_ip():
 
 if __name__ == "__main__":
     local_ip = get_local_ip()
-    print(f"Running on http://{local_ip}:5000")
-    app.run(host=local_ip, port=5000, debug=True)
+    print(f"Running on http://{local_ip}:6731")
+    app.run(host=local_ip, port=6731, debug=True)

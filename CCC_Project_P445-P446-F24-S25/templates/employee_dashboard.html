@@ -1,0 +1,26 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <title>Employee Dashboard</title>
+</head>
+<body>
+    <h1>Employee Dashboard</h1>
+    <p>Welcome, {{ username }}! Below is a list of emergencies assigned to you.</p>
+
+    <h2>My Assigned Emergencies:</h2>
+    <ul>
+    {% if emergencies %}
+        {% for em in emergencies %}
+            <li>
+                <strong>Emergency #{{ em.emergency_id }}</strong><br>
+                <b>Location Details:</b> {{ em.location_details }}<br>
+                <b>Distress Notes:</b> {{ em.distress_notes }}
+            </li>
+            <hr>
+        {% endfor %}
+    {% else %}
+        <li>No emergencies assigned yet.</li>
+    {% endif %}
+    </ul>
+</body>
+</html>
