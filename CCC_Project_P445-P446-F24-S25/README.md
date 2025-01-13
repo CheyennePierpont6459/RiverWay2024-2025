@@ -145,7 +145,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
     - Users can register as Customers via the registration page.
     - Admins can create other Admin accounts through the Admin dashboard if they elevate permissions to a Super Admin.
     - Employee accounts are handled by Admins and Super Admins. 
-    - The first admin must be created through the /admin_setup route. It is assumed that whomever does this can be elevated to a Super Admin because the Root password is needed to 
+    - The first admin must be created through the /admin_setup route. It is assumed that whomever does this can be elevated to a Super Admin because the admin root password is needed to setup the first admin. In the example .env the admin root password is "SuperSecretAdminPassword". 
 
 2. **Login** 
 
@@ -177,7 +177,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
       - Do everything an Admin can
       - Create, delete, and modify details of Admin accounts
       - Lock an account
-      - Manage chat
+      - Manage chat and chat themselves
       - See logs
 
 ## Security Considerations 
@@ -187,7 +187,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
 - **Environment Variables**: Sensitive information like secret keys and database passwords should be set as environment variables and not hardcoded. 
 
 - **Role-Based Access**: Decorators ensure that users can only access functionalities permitted to their roles. 
-- Admins who are capable in elevating themselves to a Super Admin will have access to the Google Account (cccemergencyresponse@gmail.com) login credentials, knowledge of the App password, database root password, 
+- Admins who are capable in elevating themselves to a Super Admin will have access to the Google Account (cccemergencyresponse@gmail.com) login credentials, knowledge of the App password, and database root password. 
 
 ## Contributing 
 
