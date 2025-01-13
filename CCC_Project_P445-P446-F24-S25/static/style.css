@@ -1,4 +1,6 @@
-﻿/* General Styles */
+﻿/* static/css/style.css */
+
+/* General Styles */
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -50,6 +52,115 @@ body {
 /* Content Area */
 .content {
     padding: 20px;
+}
+
+/* Emergencies Table */
+.emergencies-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background-color: #fff;
+}
+
+.emergencies-table th, .emergencies-table td {
+    border: 1px solid #ddd;
+    padding: 12px;
+    text-align: left;
+}
+
+.emergencies-table th {
+    background-color: #007bff;
+    color: white;
+}
+
+.emergencies-table tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+.emergencies-table tr:hover {
+    background-color: #f1f1f1;
+}
+
+/* Assign Container */
+.assign-container {
+    display: flex;
+    align-items: center;
+}
+
+.assign-select {
+    padding: 8px;
+    margin-right: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    flex: 1;
+}
+
+/* Button Styles */
+button {
+    padding: 8px 16px;
+    font-size: 14px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+}
+
+.btn-assign {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-assign:hover {
+    background-color: #218838;
+}
+
+.btn-unassign {
+    background-color: #dc3545;
+    color: white;
+}
+
+.btn-unassign:hover {
+    background-color: #c82333;
+}
+
+/* Disabled Select Options */
+select option[disabled] {
+    color: #999;
+}
+
+/* Modal Styles (if used in future) */
+.modal {
+    display: none; /* Hidden by default */
+    position: fixed; /* Stay in place */
+    z-index: 1; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+}
+
+.modal-content {
+    background-color: #fefefe;
+    margin: 15% auto; /* 15% from top and centered */
+    padding: 20px;
+    border: 1px solid #888;
+    width: 50%; /* Could be more or less, depending on screen size */
+}
+
+.close {
+    color: #aaa;
+    float: right;
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.close:hover,
+.close:focus {
+    color: black;
+    text-decoration: none;
+    cursor: pointer;
 }
 
 /* Login Container */
@@ -132,6 +243,16 @@ form button:hover {
     color: #721c24;
 }
 
+.flash.info {
+    background-color: #cce5ff;
+    color: #004085;
+}
+
+.flash.warning {
+    background-color: #fff3cd;
+    color: #856404;
+}
+
 /* Chat Box */
 .chat-box {
     border: 1px solid #ccc;
@@ -182,42 +303,63 @@ form button:hover {
     }
 
     form {
-    width: 100%;
-    margin-bottom: 20px;
-}
+        width: 100%;
+        margin-bottom: 20px;
+    }
 
-form label {
-    display: block;
-    margin-bottom: 5px;
-    font-weight: bold;
-}
+    form label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
 
-form input {
-    width: 100%;
-    padding: 10px;
-    margin-bottom: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    font-size: 14px;
-}
+    form input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
 
-form button {
-    padding: 10px 20px;
-    font-size: 16px;
-    background-color: #007bff;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-}
+    form button {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
 
-form button:hover {
-    background-color: #0056b3;
-}
+    form button:hover {
+        background-color: #0056b3;
+    }
 
-#updateAccountResult, #mfaRequestResult {
-    margin-top: 10px;
-    color: green;
-}
+    #updateAccountResult, #mfaRequestResult {
+        margin-top: 10px;
+        color: green;
+    }
 
+    /* Emergencies Table Adjustments */
+    .emergencies-table th, .emergencies-table td {
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    /* Assign Container Adjustments */
+    .assign-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .assign-select {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+
+    /* Button Adjustments */
+    .btn-assign, .btn-unassign {
+        width: 100%;
+    }
 }

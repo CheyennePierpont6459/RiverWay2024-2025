@@ -43,8 +43,18 @@
           if (data.success) {
             document.getElementById('result').innerHTML =
               `<p style="color:green;">${data.message}</p>`;
-            // Redirect to dashboard after a brief pause
-            setTimeout(() => window.location.href = "/customer_dashboard", 1000);
+            // Redirect based on account_type
+            setTimeout(() => {
+              if (data.account_type === "admin" || data.account_type === "super_admin") {
+                window.location.href = "/admin/home";
+              } else if (data.account_type === "customer") {
+                window.location.href = "/customer_dashboard";
+              } else if (data.account_type === "employee") {
+                window.location.href = "/employee_dashboard";
+              } else {
+                window.location.href = "/";
+              }
+            }, 1000);
           } else {
             document.getElementById('result').innerHTML =
               `<p style="color:red;">${data.message}</p>`;

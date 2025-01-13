@@ -72,7 +72,7 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
 4. **Configure Environment Variables** 
 
-    Create a `.env` file in the project root (optional) and set the following variables: 
+    Create a `.env` file in the project root and set the following variables: 
 
     ```env 
 
@@ -85,12 +85,23 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
     MYSQL_PASSWORD=your_mysql_password 
 
     MYSQL_DB=ccc_emergency_map 
+   
+   MAIL_USERNAME=cccemergencyresponse@gmail.com
+   MAIL_PASSWORD=<cccemergencyresponse@gmail.com's google account app password> #get from Google Account manager
+   MAIL_PORT=465
 
+   ROOT_PASSWORD=SuperSecretAdminPassword #consider a more secure Root password
     ``` 
 
     Alternatively, set these variables in your system environment. 
+5. **Run the following in the terminal to generate a SECRET_KEY for the .env file.**
+```bash
+python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).decode('utf-8'))"
+```
+   Replace the SECRET_KEY=<your_secret_key> with that command output.
 
-5. **Set Up the Database** 
+
+6. **Set Up the Database** 
 
     - **Create Database and Tables** 
 
@@ -117,7 +128,7 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
         ``` 
 
-6. **Run the Application** 
+7. **Run the Application** 
 
     ```bash 
 
@@ -131,9 +142,10 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
 1. **Registration** 
 
-    - Users can register as Customers via the registration page. 
-
-    - Super Admins can create Admin and Super Admin accounts through the Super Admin dashboard. 
+    - Users can register as Customers via the registration page.
+    - Admins can create other Admin accounts through the Admin dashboard if they elevate permissions to a Super Admin.
+    - Employee accounts are handled by Admins and Super Admins. 
+    - The first admin must be created through the /admin_setup route. It is assumed that whomever does this can be elevated to a Super Admin because the Root password is needed to 
 
 2. **Login** 
 
@@ -143,13 +155,30 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
 3. **Dashboards** 
 
-    - **Customer Dashboard**: View trips, create distress alerts, view site details, and leave reviews. 
+    - **Customer Dashboard**: 
+      - View trips
+      - Create distress alerts
+      - View site details
+      - Leave reviews. 
 
-    - **Employee Dashboard**: Manage trips, handle assigned alerts, view all distress trips, view site details, and view customer reviews. 
+    - **Employee Dashboard**: 
+      - Manage trips
+      - handle assigned alerts
+      - view all distress trips
+      - View site details
+      - View customer reviews. 
 
-    - **Admin Dashboard**: Create Employee accounts, view trips, manage site details, and override assignments. 
+    - **Admin Dashboard**: 
+      - Create, delete, and modify details of Employee accounts
+      - Manage assignments for emergencies. 
+      - Chat
 
-    - **Super Admin Dashboard**: Create and manage Admin and Super Admin accounts, and manage site details. 
+    - **Super Admin Dashboard** (Extension of Admin Dashboard):
+      - Do everything an Admin can
+      - Create, delete, and modify details of Admin accounts
+      - Lock an account
+      - Manage chat
+      - See logs
 
 ## Security Considerations 
 
@@ -158,6 +187,7 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 - **Environment Variables**: Sensitive information like secret keys and database passwords should be set as environment variables and not hardcoded. 
 
 - **Role-Based Access**: Decorators ensure that users can only access functionalities permitted to their roles. 
+- Admins who are capable in elevating themselves to a Super Admin will have access to the Google Account (cccemergencyresponse@gmail.com) login credentials, knowledge of the App password, database root password, 
 
 ## Contributing 
 

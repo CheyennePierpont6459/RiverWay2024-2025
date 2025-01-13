@@ -1,10 +1,18 @@
-﻿-- 1. Create the database if it doesn't already exist
+﻿-- ============================================
+-- 1. Create the Database
+-- ============================================
+
+-- Create the database if it doesn't already exist
 CREATE DATABASE IF NOT EXISTS ccc_emergency_map;
 
--- 2. Switch to the database
+-- Switch to the newly created database
 USE ccc_emergency_map;
 
--- 3. Create the users table
+-- ============================================
+-- 2. Create the Tables
+-- ============================================
+
+-- 2.1. Create the users table with is_locked and session_token columns
 CREATE TABLE IF NOT EXISTS users (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -12,10 +20,12 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash VARCHAR(255) NOT NULL,
     phone_number VARCHAR(20) NOT NULL,
     account_type VARCHAR(20) DEFAULT 'customer' NOT NULL,
+    is_locked BOOLEAN NOT NULL DEFAULT FALSE, -- Existing Column for Account Locking
+    session_token VARCHAR(64) DEFAULT NULL, -- New Column for Session Invalidation
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-);
+) ENGINE=InnoDB;
 
--- 4. Create the ratings table
+-- 2.2. Create the ratings table
 CREATE TABLE IF NOT EXISTS ratings (
     rating_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -26,21 +36,25 @@ CREATE TABLE IF NOT EXISTS ratings (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
--- 5. Create the emergencies table
+-- 2.3. Create the emergencies table with assigned_employee_id
 CREATE TABLE IF NOT EXISTS emergencies (
     emergency_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
     location_details TEXT,
     distress_notes TEXT,
+    assigned_employee_id INT DEFAULT NULL, -- New Column for Assigned Employee
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    FOREIGN KEY (assigned_employee_id) REFERENCES users(user_id)
+        ON DELETE SET NULL
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
--- 6. Create the chat_messages table
+-- 2.4. Create the chat_messages table
 CREATE TABLE IF NOT EXISTS chat_messages (
     message_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -49,9 +63,9 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
--- 7. Create the MFA table
+-- 2.5. Create the MFA table
 CREATE TABLE IF NOT EXISTS mfa (
     mfa_id INT AUTO_INCREMENT PRIMARY KEY,
     user_id INT NOT NULL,
@@ -60,18 +74,19 @@ CREATE TABLE IF NOT EXISTS mfa (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE CASCADE
         ON UPDATE CASCADE
-);
+) ENGINE=InnoDB;
 
--- 8. Use the same database (redundant but safe)
-USE ccc_emergency_map;
+-- ============================================
+-- 3. Create the Stored Procedure
+-- ============================================
 
--- 9. Change the delimiter to allow multi-statement procedure
+-- Change the delimiter to allow multi-statement procedure
 DELIMITER $$
 
--- 10. Drop the procedure if it already exists (to avoid conflicts)
+-- Drop the procedure if it already exists to avoid conflicts
 DROP PROCEDURE IF EXISTS DeleteUserAndDependencies$$
 
--- 11. Create the procedure
+-- Create the procedure
 CREATE PROCEDURE DeleteUserAndDependencies(IN target_user_id INT)
 BEGIN
     -- Declare a handler to catch any SQL exceptions
@@ -100,9 +115,15 @@ BEGIN
     SELECT CONCAT('Success: User with user_id = ', target_user_id, ' and all related records have been deleted.') AS Message;
 END$$
 
--- 12. Revert the delimiter back to the default
+-- Revert the delimiter back to the default
 DELIMITER ;
 
--- 13. Grant all privileges on this DB to root@localhost
+-- ============================================
+-- 4. Grant Privileges
+-- ============================================
+
+-- Grant all privileges on the ccc_emergency_map database to root@localhost
 GRANT ALL PRIVILEGES ON ccc_emergency_map.* TO 'root'@'localhost' WITH GRANT OPTION;
+
+-- Apply the privilege changes
 FLUSH PRIVILEGES;

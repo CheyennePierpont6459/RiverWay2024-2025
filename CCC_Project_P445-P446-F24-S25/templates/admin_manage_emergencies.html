@@ -1,10 +1,11 @@
-﻿{% extends "admin_base.html" %}
+﻿<!-- templates/admin_manage_emergencies.html -->
+{% extends "admin_base.html" %}
 
 {% block content %}
     <h2>Manage Emergencies</h2>
 
     <!-- Emergencies Table -->
-    <table>
+    <table class="emergencies-table">
         <thead>
             <tr>
                 <th>ID</th>
@@ -24,16 +25,24 @@
                 <td>{{ em.customer_phone }}</td>
                 <td>{{ em.location_details }}</td>
                 <td>{{ em.distress_notes }}</td>
-                <td>{{ em.assigned_employee_name if em.assigned_employee_name else "Unassigned" }}</td>
+                <td>
+                    {{ em.assigned_employee_name if em.assigned_employee_name else "Unassigned" }}
+                </td>
                 <td>
                     {% if not em.assigned_employee_id %}
-                        <select id="assign_employee_{{ em.emergency_id }}">
-                            <option value="">-- Select Employee --</option>
-                            {% for emp in employees %}
-                                <option value="{{ emp.user_id }}">{{ emp.username }}</option>
-                            {% endfor %}
-                        </select>
-                        <button class="btn btn-assign" onclick="assignEmergency({{ em.emergency_id }})">Assign</button>
+                        <div class="assign-container">
+                            <select id="assign_employee_{{ em.emergency_id }}" class="assign-select">
+                                <option value="">-- Select Employee --</option>
+                                {% for emp in employees %}
+                                    {% if not emp.is_locked %}
+                                        <option value="{{ emp.user_id }}">{{ emp.username }}</option>
+                                    {% else %}
+                                        <option value="{{ emp.user_id }}" disabled>{{ emp.username }} (Locked)</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-assign" onclick="assignEmergency({{ em.emergency_id }})">Assign</button>
+                        </div>
                     {% else %}
                         <button class="btn btn-unassign" onclick="unassignEmergency({{ em.emergency_id }})">Unassign</button>
                     {% endif %}
@@ -58,9 +67,9 @@
         const response = await fetch('/api/admin/assign_emergency', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ emergency_id, employee_id }),
+            body: JSON.stringify({ emergency_id, employee_id })
         });
 
         const data = await response.json();
@@ -79,9 +88,9 @@
         const response = await fetch('/api/admin/unassign_emergency', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ emergency_id }),
+            body: JSON.stringify({ emergency_id })
         });
 
         const data = await response.json();

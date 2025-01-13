@@ -5,9 +5,10 @@
 <p>Please enter your email and password to verify your identity and request an OTP.</p>
 
 <form id="requestOtpForm">
+  <!-- CSRF Token -->
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="email">Email:</label><br>
   <input type="email" id="email" placeholder="Enter your email" required><br>
-
   <label for="password">Password:</label><br>
   <input type="password" id="password" placeholder="Enter your password" required><br>
 

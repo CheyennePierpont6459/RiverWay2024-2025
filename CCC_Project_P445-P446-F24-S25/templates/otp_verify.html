@@ -5,6 +5,8 @@
 <p>An OTP has been sent to your registered email. Please enter it below.</p>
 
 <form id="otpVerifyForm">
+  <!-- CSRF Token -->
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="otp">Enter OTP:</label><br>
   <input type="text" id="otp" placeholder="Enter the OTP" required><br>
 
