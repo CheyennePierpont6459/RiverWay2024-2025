@@ -52,17 +52,8 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
     ``` 
 
-2. **Set Up Virtual Environment** 
 
-    ```bash 
-
-    python3 -m venv venv 
-
-    source venv/bin/activate  # On Windows use `venv\Scripts\activate` 
-
-    ``` 
-
-3. **Install Dependencies** 
+2. **Install Dependencies** 
 
     ```bash 
 
@@ -70,7 +61,7 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 
     ``` 
 
-4. **Configure Environment Variables** 
+3. **Configure Environment Variables** 
 
     Create a `.env` file in the project root and set the following variables: 
 
@@ -94,14 +85,14 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
     ``` 
 
     Alternatively, set these variables in your system environment. 
-5. **Run the following in the terminal to generate a SECRET_KEY for the .env file.**
+4. **Run the following in the terminal to generate a SECRET_KEY for the .env file.**
 ```bash
 python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).decode('utf-8'))"
 ```
    Replace the SECRET_KEY=<your_secret_key> with that command output.
 
 
-6. **Set Up the Database** 
+5. **Set Up the Database** 
 
     - **Create Database and Tables** 
 
@@ -111,7 +102,8 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
 
         mysql -u root -p your_mysql_password < ccc_emergency_map_schema.sql 
 
-        ``` 
+        ```
+You can also set up the SQL server instance by using [MySQL Workbench](https://www.mysql.com/products/workbench/). Take the provided code in ccc_emergency_map.sql, copy it, and add it to a created schema named “ccc_emergency_map.sql”.
 
     - **Initialize Database Migrations** 
    
@@ -128,7 +120,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
 
         ``` 
 
-7. **Run the Application** 
+5. **Run the Application** 
 
     ```bash 
 
@@ -136,7 +128,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
 
     ``` 
 
-    The application will be accessible at `http://localhost:5000/` or on the localnetwork at http://192.168.X.X:5000 depending on socket capability.
+    The application will be accessible at `http://localhost:5000/` or on the localnetwork at http://192.168.X.X:5000 depending on socket capability. If your network is custom-configured, the IP may be different.
 
 ## Usage 
 
@@ -145,7 +137,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
     - Users can register as Customers via the registration page.
     - Admins can create other Admin accounts through the Admin dashboard if they elevate permissions to a Super Admin.
     - Employee accounts are handled by Admins and Super Admins. 
-    - The first admin must be created through the /admin_setup route. It is assumed that whomever does this can be elevated to a Super Admin because the admin root password is needed to setup the first admin. In the example .env the admin root password is "SuperSecretAdminPassword". 
+    - The first admin must be created through the /admin_setup route. It is assumed that whomever does this can be elevated to a Super Admin because the admin master/root password is needed to setup the first admin. In the example .env the admin root password is "SuperSecretAdminPassword". 
 
 2. **Login** 
 
