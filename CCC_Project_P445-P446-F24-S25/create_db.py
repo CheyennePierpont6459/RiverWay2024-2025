@@ -6,6 +6,7 @@ import socket
 import ssl
 from datetime import datetime, timedelta
 from email.message import EmailMessage
+import traceback
 
 from flask import (
     Flask, render_template, redirect, url_for,
@@ -23,35 +24,33 @@ from flask_mail import Mail, Message
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import SQLAlchemyError, SAWarning
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from flask_wtf import CSRFProtect
+
+import warnings
+
+warnings.filterwarnings("ignore", category=SAWarning)  # Temporarily suppress SAWarnings
 
 # Load environment variables from .env file
 load_dotenv()
 
 
 #########################
-#   CONFIG CLASSES      #
+#      CONFIGURATION    #
 #########################
 
 class Config:
-    SECRET_KEY = os.getenv("SECRET_KEY", "default_secret_key")
+    SECRET_KEY = os.getenv("SECRET_KEY", "defaultsecretkey")
+    SQLALCHEMY_DATABASE_URI = (
+        f"mysql+pymysql://{os.getenv('DB_USER')}:{quote_plus(os.getenv('DB_PASSWORD', ''))}@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
+    )
     SQLALCHEMY_TRACK_MODIFICATIONS = False
-    SESSION_PERMANENT = False
-    ROOT_PASSWORD = os.getenv("ROOT_PASSWORD", "")
 
 
 class DevelopmentConfig(Config):
     DEBUG = True
-    DB_HOST = os.getenv("DB_HOST", "localhost")
-    DB_USER = os.getenv("DB_USER", "root")
-    DB_PASSWORD = quote_plus(os.getenv("DB_PASSWORD", "<put your db password here>"))
-    DB_NAME = os.getenv("DB_NAME", "ccc_emergency_map")
-    SQLALCHEMY_DATABASE_URI = (
-        f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-    )
 
 
 class ProductionConfig(Config):
@@ -87,105 +86,24 @@ login_manager.login_view = "login_page"
 login_manager.login_message_category = "info"
 
 # Mail config
-app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')  # Replace with your SMTP server
-app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 465))  # Typically 465 for SMTP_SSL
-app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'True') == 'True'  # Use SSL instead of TLS
+app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
+app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 465))
+app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'True') == 'True'
 app.config['MAIL_USERNAME'] = os.getenv('MAIL_USERNAME')
 app.config['MAIL_PASSWORD'] = os.getenv('MAIL_PASSWORD')
+app.config['MAIL_DEFAULT_SENDER'] = app.config['MAIL_USERNAME']
+
 mail = Mail(app)
 
 # CSRF Protection
 csrf = CSRFProtect(app)
 
-
-#########################
-#     SESSION & CACHE   #
-#########################
-
-@app.before_request
-def make_session_non_permanent():
-    session.permanent = False
-
-
-@app.after_request
-def no_caching(response):
-    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-    response.headers["Pragma"] = "no-cache"
-    response.headers["Expires"] = "0"
-    return response
-
-
-#########################
-#       MODELS          #
-#########################
-
-@login_manager.user_loader
-def load_user(user_id):
-    return db.session.get(Users, int(user_id))
-
-
-class Users(db.Model, UserMixin):
-    __tablename__ = "users"
-    user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    username = db.Column(db.String(50), nullable=False, unique=True)
-    email = db.Column(db.String(100), unique=True, nullable=False)
-    password_hash = db.Column(db.String(255), nullable=False)
-    phone_number = db.Column(db.String(20), nullable=False)
-    account_type = db.Column(db.String(20), nullable=False, default="customer")
-    is_locked = db.Column(db.Boolean, nullable=False, default=False)  # Existing Field
-    session_token = db.Column(db.String(64), nullable=True)  # New Field
-    created_at = db.Column(db.DateTime, default=datetime.now())
-
-    @property
-    def id(self):
-        return self.user_id
-
-
-class Ratings(db.Model):
-    __tablename__ = "ratings"
-    rating_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
-        nullable=False
-    )
-    rating_header = db.Column(db.String(100), nullable=False)
-    rating_notes = db.Column(db.Text, nullable=False)
-    rating_value = db.Column(db.Integer, nullable=False)
-    created_at = db.Column(db.DateTime, default=datetime.now())
-
-
-class Emergencies(db.Model):
-    __tablename__ = "emergencies"
-    emergency_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
-        nullable=False,
-    )
-    location_details = db.Column(db.Text, nullable=True)
-    distress_notes = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.now())
-
-
-class ChatMessages(db.Model):
-    __tablename__ = "chat_messages"
-    message_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(
-        db.Integer,
-        db.ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
-        nullable=False,
-    )
-    message = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-
-
-class MFA(db.Model):
-    __tablename__ = "mfa"
-    mfa_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
-    user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
-    code = db.Column(db.String(6), nullable=False)
-    expiration = db.Column(db.DateTime, nullable=False)
+# Limiter Initialization (Memory store for dev/testing)
+limiter = Limiter(
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"]
+)
+limiter.init_app(app)
 
 
 #########################
@@ -243,8 +161,111 @@ def get_local_ip():
 
 
 #########################
-#       ROUTES          #
+#       MODELS          #
 #########################
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(Users, int(user_id))
+
+
+class Users(db.Model, UserMixin):
+    __tablename__ = "users"
+    user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    username = db.Column(db.String(50), nullable=False, unique=True)
+    email = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(255), nullable=False)
+    phone_number = db.Column(db.String(20), nullable=False)
+    account_type = db.Column(db.String(20), nullable=False, default="customer")
+    is_locked = db.Column(db.Boolean, nullable=False, default=False)
+    session_token = db.Column(db.String(64), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now())
+
+    # Provide the property for Flask-Login to see "id"
+    @property
+    def id(self):
+        return self.user_id
+
+    # Relationship for assigned emergencies (employee side)
+    assigned_emergencies = db.relationship(
+        "Emergencies",
+        back_populates="assigned_employee",
+        lazy=True,
+        foreign_keys="Emergencies.assigned_employee_id"
+    )
+
+    # Relationship for emergencies created by user (customer side)
+    emergencies_created = db.relationship(
+        "Emergencies",
+        back_populates="customer",
+        lazy=True,
+        foreign_keys="Emergencies.user_id"
+    )
+
+
+class Ratings(db.Model):
+    __tablename__ = "ratings"
+    rating_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False
+    )
+    rating_header = db.Column(db.String(100), nullable=False)
+    rating_notes = db.Column(db.Text, nullable=False)
+    rating_value = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.now())
+
+
+class Emergencies(db.Model):
+    __tablename__ = "emergencies"
+    emergency_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False
+    )
+    location_details = db.Column(db.Text, nullable=True)
+    distress_notes = db.Column(db.Text, nullable=True)
+    assigned_employee_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=True)
+    created_at = db.Column(db.DateTime, default=datetime.now())
+
+    assigned_employee = db.relationship(
+        "Users",
+        back_populates="assigned_emergencies",
+        foreign_keys=[assigned_employee_id]
+    )
+
+    customer = db.relationship(
+        "Users",
+        back_populates="emergencies_created",
+        foreign_keys=[user_id]
+    )
+
+
+class ChatMessages(db.Model):
+    __tablename__ = "chat_messages"
+    message_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(
+        db.Integer,
+        db.ForeignKey("users.user_id", ondelete="CASCADE", onupdate="CASCADE"),
+        nullable=False
+    )
+    message = db.Column(db.Text, nullable=False)
+    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
+
+
+class MFA(db.Model):
+    __tablename__ = "mfa"
+    mfa_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), nullable=False)
+    code = db.Column(db.String(6), nullable=False)
+    expiration = db.Column(db.DateTime, nullable=False)
+
+
+##############################
+#       ROUTES / VIEWS       #
+##############################
 
 @app.route("/")
 def index():
@@ -283,16 +304,12 @@ def customer_dashboard():
     elif current_user.account_type in ["admin", "super_admin"]:
         return redirect(url_for("admin_home"))
     else:
-        # Employee
         return redirect(url_for("employee_dashboard"))
 
 
 @app.route("/employee_dashboard")
 @login_required
 def employee_dashboard():
-    """
-    A minimal Employee Dashboard so employees can see their assigned emergencies.
-    """
     if current_user.account_type not in ["employee", "admin", "super_admin"]:
         return redirect(url_for("login_page"))
     if current_user.account_type != "employee":
@@ -300,13 +317,11 @@ def employee_dashboard():
             return redirect(url_for("admin_home"))
         else:
             return redirect(url_for("customer_dashboard"))
-    # Fetch all emergencies assigned to the current employee
-    assigned_emergencies = Emergencies.query.filter(
-        Emergencies.distress_notes.like(f"%[ASSIGNED_EMPLOYEE={current_user.user_id}]%")
+    assigned_emergencies = Emergencies.query.filter_by(
+        assigned_employee_id=current_user.user_id
     ).all()
-
     return render_template(
-        "employee_dashboard.html",
+        "employee_home.html",
         username=current_user.username,
         emergencies=assigned_emergencies
     )
@@ -356,7 +371,7 @@ def admin_home():
     total_employees = Users.query.filter_by(account_type="employee").count()
     total_emergencies = Emergencies.query.count()
     unresolved_emergencies = Emergencies.query.filter(
-        ~Emergencies.distress_notes.like("%[ASSIGNED_EMPLOYEE=%")
+        Emergencies.assigned_employee_id == None
     ).count()
 
     stats = {
@@ -365,7 +380,6 @@ def admin_home():
         "total_emergencies": total_emergencies,
         "unresolved_emergencies": unresolved_emergencies
     }
-
     return render_template("admin_home.html", stats=stats)
 
 
@@ -378,7 +392,6 @@ def admin_manage_staff():
         return redirect(url_for("customer_dashboard"))
 
     employees = Users.query.filter_by(account_type="employee").all()
-    # Include admins if super_admin
     if current_user.account_type == "super_admin":
         admins = Users.query.filter_by(account_type="admin").all()
     else:
@@ -399,10 +412,7 @@ def admin_manage_emergencies():
 
     data_emergencies = []
     for em in all_ems:
-        assigned_id = parse_assigned_employee_id(em.distress_notes)
-        assigned_user = None
-        if assigned_id:
-            assigned_user = db.session.get(Users, assigned_id)
+        assigned_user = db.session.get(Users, em.assigned_employee_id) if em.assigned_employee_id else None
         customer_obj = db.session.get(Users, em.user_id)
         customer_name = customer_obj.username if customer_obj else "Unknown"
         customer_phone = customer_obj.phone_number if customer_obj else "N/A"
@@ -411,15 +421,17 @@ def admin_manage_emergencies():
             "emergency_id": em.emergency_id,
             "location_details": em.location_details,
             "distress_notes": em.distress_notes,
-            "assigned_employee_id": assigned_id,
+            "assigned_employee_id": em.assigned_employee_id,
             "assigned_employee_name": assigned_user.username if assigned_user else None,
             "customer_name": customer_name,
             "customer_phone": customer_phone
         })
 
-    return render_template("admin_manage_emergencies.html",
-                           emergencies=data_emergencies,
-                           employees=employees)
+    return render_template(
+        "admin_manage_emergencies.html",
+        emergencies=data_emergencies,
+        employees=employees
+    )
 
 
 @app.route("/admin/chat")
@@ -436,9 +448,8 @@ def admin_chat():
 #  SIGNUP, LOGIN, LOGOUT     #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/signup", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 def api_signup():
     data = request.get_json()
     username = data.get("username")
@@ -449,11 +460,9 @@ def api_signup():
     if not username or not email or not password or not phone_number:
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
-    user_exists = Users.query.filter_by(username=username).first()
-    if user_exists:
+    if Users.query.filter_by(username=username).first():
         return jsonify({"success": False, "message": "Username already exists!"}), 400
-    email_exists = Users.query.filter_by(email=email).first()
-    if email_exists:
+    if Users.query.filter_by(email=email).first():
         return jsonify({"success": False, "message": "Email already registered."}), 400
 
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -473,9 +482,8 @@ def api_signup():
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
 
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/login", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 def api_login():
     data = request.get_json()
     email = data.get("email")
@@ -492,12 +500,10 @@ def api_login():
             return jsonify({"success": False, "message": "Your account is locked. Please contact support."}), 403
 
         if bcrypt.check_password_hash(user.password_hash, password):
-            # Generate a new session token
             user.session_token = secrets.token_hex(32)
             db.session.commit()
-
             login_user(user, remember=False)
-            session['session_token'] = user.session_token  # Store in session
+            session['session_token'] = user.session_token
             app.logger.info(f"User {user.username} logged in successfully.")
             return jsonify({
                 "success": True,
@@ -512,9 +518,8 @@ def api_login():
         return jsonify({"success": False, "message": "Invalid email or password."}), 401
 
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/logout", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def logout():
     if current_user.account_type == "super_admin":
@@ -526,10 +531,9 @@ def logout():
             db.session.rollback()
             app.logger.error(f"Error reverting super_admin to admin: {e}")
             return jsonify({"success": False, "message": "Logout failed due to server error."}), 500
-    # Clear the session token
+
     current_user.session_token = None
     db.session.commit()
-
     logout_user()
     session.clear()
     return redirect(url_for("login_page"))
@@ -539,9 +543,8 @@ def logout():
 #   FORGOT PASSWORD          #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/forgot_password", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 def forgot_password():
     if request.method == "POST":
         data = request.get_json()
@@ -574,9 +577,9 @@ def forgot_password():
     return render_template("forgot_password.html")
 
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/reset_password", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
+@login_required
 def reset_password():
     if request.method == "POST":
         data = request.get_json()
@@ -608,12 +611,11 @@ def reset_password():
 
 
 ##############################
-#   OTP + ACCOUNT UPDATE     #
+#  OTP + ACCOUNT UPDATE      #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/request_otp_page", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def request_otp_page():
     if request.method == "POST":
@@ -651,9 +653,8 @@ def request_otp_page():
     return render_template("request_otp_page.html")
 
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/otp_verify", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def otp_verify():
     if request.method == "POST":
@@ -680,9 +681,8 @@ def otp_verify():
     return render_template("otp_verify.html")
 
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/account_update", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def account_update():
     if not session.get("otp_verified"):
@@ -697,12 +697,13 @@ def account_update():
         new_phone = data.get("new_phone")
 
         if new_email:
-            # Check if the new email is already taken by another user
             if Users.query.filter(Users.email == new_email, Users.user_id != current_user.user_id).first():
                 return jsonify({"success": False, "message": "Email already in use."}), 400
             current_user.email = new_email
+
         if new_password:
             current_user.password_hash = bcrypt.generate_password_hash(new_password).decode("utf-8")
+
         if new_phone:
             current_user.phone_number = new_phone
 
@@ -721,9 +722,8 @@ def account_update():
 #       REVIEWS ENDPOINT     #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/reviews", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def api_reviews():
     if current_user.account_type != "customer":
@@ -775,9 +775,8 @@ def api_reviews():
 #       EMERGENCY ENDPOINT   #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/emergency", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def api_emergency():
     if current_user.account_type != "customer":
@@ -806,12 +805,11 @@ def api_emergency():
     my_ems = Emergencies.query.filter_by(user_id=current_user.user_id).all()
     data_list = []
     for em in my_ems:
-        assigned_id = parse_assigned_employee_id(em.distress_notes)
         data_list.append({
             "emergency_id": em.emergency_id,
             "location_details": em.location_details,
             "distress_notes": em.distress_notes,
-            "assigned_employee_id": assigned_id,
+            "assigned_employee_id": em.assigned_employee_id,
             "created_at": em.created_at.strftime("%Y-%m-%d %H:%M:%S")
         })
     return jsonify({"success": True, "emergencies": data_list}), 200
@@ -821,9 +819,8 @@ def api_emergency():
 #   CHAT MESSAGES ENDPOINT   #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/chat/messages", methods=["GET", "POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def api_chat_messages():
     if request.method == "POST":
@@ -858,9 +855,8 @@ def api_chat_messages():
 #   ADMIN: CREATE EMPLOYEE   #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/admin/create_employee", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def admin_create_employee():
     if current_user.account_type not in ["admin", "super_admin"]:
@@ -875,11 +871,9 @@ def admin_create_employee():
     if not username or not email or not password or not phone_number:
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
-    existing_user = Users.query.filter_by(username=username).first()
-    if existing_user:
+    if Users.query.filter_by(username=username).first():
         return jsonify({"success": False, "message": "Username already exists."}), 400
-    existing_email = Users.query.filter_by(email=email).first()
-    if existing_email:
+    if Users.query.filter_by(email=email).first():
         return jsonify({"success": False, "message": "Email already registered."}), 400
 
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
@@ -903,14 +897,10 @@ def admin_create_employee():
 #   ADMIN: CREATE ADMIN      #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/admin/create_admin", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def admin_create_admin():
-    """
-    Allows a Super Admin to create a new Admin account.
-    """
     if current_user.account_type != "super_admin":
         app.logger.warning(f"User {current_user.username} attempted to create an admin without sufficient privileges.")
         return jsonify({"success": False, "message": "Root permission required to create an admin."}), 403
@@ -924,16 +914,12 @@ def admin_create_admin():
     if not username or not email or not password or not phone_number:
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
-    # Check if username or email already exists
     if Users.query.filter_by(username=username).first():
         return jsonify({"success": False, "message": "Username already exists."}), 400
     if Users.query.filter_by(email=email).first():
         return jsonify({"success": False, "message": "Email already registered."}), 400
 
-    # Hash the password
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-
-    # Create the new admin user
     new_admin = Users(
         username=username,
         email=email,
@@ -941,7 +927,6 @@ def admin_create_admin():
         phone_number=phone_number,
         account_type="admin"
     )
-
     try:
         db.session.add(new_admin)
         db.session.commit()
@@ -957,9 +942,8 @@ def admin_create_admin():
 #   ADMIN: ASSIGN/UNASSIGN   #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/admin/assign_emergency", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def admin_assign_emergency():
     if current_user.account_type not in ["admin", "super_admin"]:
@@ -972,40 +956,35 @@ def admin_assign_emergency():
     if not emergency_id or not employee_id:
         return jsonify({"success": False, "message": "emergency_id and employee_id required"}), 400
 
-    emergency = Emergencies.query.get(emergency_id)
+    emergency = db.session.get(Emergencies, emergency_id)
     if not emergency:
         return jsonify({"success": False, "message": "Emergency not found."}), 404
 
-    employee_user = Users.query.get(employee_id)
+    employee_user = db.session.get(Users, employee_id)
     if not employee_user or employee_user.account_type != "employee":
         return jsonify({"success": False, "message": "User is not an employee."}), 400
 
-    # **New Addition: Prevent assigning to locked employees**
     if employee_user.is_locked:
         return jsonify({"success": False, "message": "Cannot assign work to a locked employee."}), 403
 
-    existing_emp_id = parse_assigned_employee_id(emergency.distress_notes)
-    if existing_emp_id is not None:
+    if emergency.assigned_employee_id is not None:
         return jsonify({"success": False, "message": "Already assigned."}), 400
 
     updated = update_assigned_employee_id(emergency.distress_notes, new_employee_id=employee_id)
     emergency.distress_notes = updated
+    emergency.assigned_employee_id = employee_id
+
+    distress_notes_clean = updated.split("[ASSIGNED_EMPLOYEE=")[0].strip() if updated else "N/A"
 
     try:
         db.session.commit()
-
         customer_user = db.session.get(Users, emergency.user_id)
-
-        # **Email Formatting Enhancements and Marker Removal**
-        distress_notes_clean = emergency.distress_notes.split("[ASSIGNED_EMPLOYEE=")[0].strip() if emergency.distress_notes else "N/A"
-
-        # Send assignment emails with cleaned distress_notes
         send_assignment_email_to_employee(
             employee=employee_user,
             customer=customer_user,
             emergency_id=emergency.emergency_id,
             location_details=emergency.location_details,
-            distress_notes=distress_notes_clean,  # Cleaned distress_notes
+            distress_notes=distress_notes_clean,
             admin_user=current_user,
             assigned=True
         )
@@ -1013,22 +992,22 @@ def admin_assign_emergency():
             customer=customer_user,
             emergency_id=emergency.emergency_id,
             location_details=emergency.location_details,
-            distress_notes=distress_notes_clean,  # Cleaned distress_notes
+            distress_notes=distress_notes_clean,
             employee_username=employee_user.username,
             employee_phone=employee_user.phone_number,
             employee_email=employee_user.email,
             assigned=True
         )
-
         return jsonify({"success": True, "message": "Assigned successfully."}), 200
     except Exception as e:
         db.session.rollback()
+        app.logger.error(f"Assign Emergency Error: {e}")
+        app.logger.error(traceback.format_exc())
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
 
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/admin/unassign_emergency", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def admin_unassign_emergency():
     if current_user.account_type not in ["admin", "super_admin"]:
@@ -1039,30 +1018,31 @@ def admin_unassign_emergency():
     if not emergency_id:
         return jsonify({"success": False, "message": "emergency_id required"}), 400
 
-    emergency = Emergencies.query.get(emergency_id)
+    emergency = db.session.get(Emergencies, emergency_id)
     if not emergency:
         return jsonify({"success": False, "message": "Emergency not found."}), 404
 
-    current_assignee = parse_assigned_employee_id(emergency.distress_notes)
+    current_assignee = emergency.assigned_employee_id
     if current_assignee is None:
         return jsonify({"success": False, "message": "No assigned employee."}), 400
 
     updated = update_assigned_employee_id(emergency.distress_notes, new_employee_id=None)
     emergency.distress_notes = updated
+    emergency.assigned_employee_id = None
+
+    distress_notes_clean = updated.split("[ASSIGNED_EMPLOYEE=")[0].strip() if updated else "N/A"
+
     try:
         db.session.commit()
-
         employee_user = db.session.get(Users, current_assignee)
         customer_user = db.session.get(Users, emergency.user_id)
         if employee_user:
-            # Remove marker from distress_notes
-            distress_notes_clean = emergency.distress_notes.split("[ASSIGNED_EMPLOYEE=")[0].strip() if emergency.distress_notes else "N/A"
             send_assignment_email_to_employee(
                 employee=employee_user,
                 customer=customer_user,
                 emergency_id=emergency.emergency_id,
                 location_details=emergency.location_details,
-                distress_notes=distress_notes_clean,  # Cleaned distress_notes
+                distress_notes=distress_notes_clean,
                 admin_user=current_user,
                 assigned=False
             )
@@ -1070,13 +1050,14 @@ def admin_unassign_emergency():
             customer=customer_user,
             emergency_id=emergency.emergency_id,
             location_details=emergency.location_details,
-            distress_notes=distress_notes_clean,  # Cleaned distress_notes
+            distress_notes=distress_notes_clean,
             assigned=False
         )
-
         return jsonify({"success": True, "message": "Unassigned successfully."}), 200
     except Exception as e:
         db.session.rollback()
+        app.logger.error(f"Unassign Emergency Error: {e}")
+        app.logger.error(traceback.format_exc())
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
 
 
@@ -1084,9 +1065,8 @@ def admin_unassign_emergency():
 #  ADMIN: DELETE EMPLOYEE    #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/admin/delete_employee", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def admin_delete_employee():
     if current_user.account_type not in ["admin", "super_admin"]:
@@ -1097,9 +1077,13 @@ def admin_delete_employee():
     if not employee_id:
         return jsonify({"success": False, "message": "employee_id required"}), 400
 
-    user_to_delete = Users.query.get(employee_id)
+    user_to_delete = db.session.get(Users, employee_id)
     if not user_to_delete or user_to_delete.account_type not in ["employee", "admin"]:
         return jsonify({"success": False, "message": "User is not an employee/admin or does not exist."}), 400
+
+    # Block deletion if locked
+    if user_to_delete.is_locked:
+        return jsonify({"success": False, "message": "Cannot delete a locked account. Unlock first."}), 403
 
     # Prevent super_admin from deleting themselves
     if user_to_delete.account_type == "super_admin" and user_to_delete.user_id == current_user.user_id:
@@ -1121,6 +1105,7 @@ def admin_delete_employee():
         return jsonify({"success": True, "message": f"Employee/Admin (ID={employee_id}) removed."}), 200
     except Exception as e:
         app.logger.error(f"Delete Employee/Admin Error: {e}")
+        app.logger.error(traceback.format_exc())
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
 
 
@@ -1128,9 +1113,8 @@ def admin_delete_employee():
 #   ADMIN: UPDATE STAFF      #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/admin/update_staff/<int:staff_id>", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def admin_update_staff(staff_id):
     if current_user.account_type not in ["admin", "super_admin"]:
@@ -1141,20 +1125,33 @@ def admin_update_staff(staff_id):
     email = data.get("email")
     password = data.get("password")
     phone_number = data.get("phone_number")
-    is_locked = data.get("is_locked")  # Optional, for super_admin
+    is_locked = data.get("is_locked")  # Toggling from JS
 
-    user = Users.query.get(staff_id)
+    user = db.session.get(Users, staff_id)
     if not user or user.account_type not in ["employee", "admin"]:
         return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
 
-    # Prevent super_admin from locking/unlocking themselves
+    # If user is locked, only super_admin can "unlock" them
+    if user.is_locked:
+        if current_user.account_type == "super_admin" and is_locked is False:
+            # They want to unlock
+            user.is_locked = False
+            # Keep the rest of data updates minimal or disallowed
+            db.session.commit()
+            return jsonify({"success": True, "message": "Locked account unlocked by super_admin."}), 200
+        else:
+            return jsonify({"success": False, "message": "Cannot update locked account (unless super_admin unlocking)."}), 403
+
+    # Prevent super_admin from modifying themselves if they are super_admin
+
     if user.account_type == "super_admin" and user.user_id == current_user.user_id:
         return jsonify({"success": False, "message": "Super Admin cannot modify their own account."}), 403
 
+    # Normal updates if user is not locked
     if username:
         user.username = username
     if email:
-        # Check for duplicate email
+        # Check if the new email is already taken
         existing = Users.query.filter(Users.email == email, Users.user_id != staff_id).first()
         if existing:
             return jsonify({"success": False, "message": "Email already in use."}), 400
@@ -1163,15 +1160,17 @@ def admin_update_staff(staff_id):
         user.password_hash = bcrypt.generate_password_hash(password).decode("utf-8")
     if phone_number:
         user.phone_number = phone_number
-    if is_locked is not None:
-        # Only super_admin can modify is_locked status
-        if current_user.account_type != "super_admin":
-            return jsonify({"success": False, "message": "Only Super Admin can lock/unlock accounts."}), 403
+
+    # If super_admin toggles lock => lock the user
+    if is_locked is not None and current_user.account_type == "super_admin":
+        # If is_locked == True => lock the user
+        # If is_locked == False => means "unlock" but we handled that above if already locked
         if user.account_type == "super_admin":
             return jsonify({"success": False, "message": "Cannot lock/unlock another Super Admin."}), 403
-        user.is_locked = bool(is_locked)
-        if is_locked:
-            user.session_token = None  # Invalidate session if locked
+        # Lock them if is_locked==True
+        if is_locked is True:
+            user.is_locked = True
+            user.session_token = None  # Invalidate session
 
     try:
         db.session.commit()
@@ -1179,92 +1178,12 @@ def admin_update_staff(staff_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
-
-
-##############################
-#   ADMIN: LOCK ACCOUNT      #
-##############################
-
-# Exempted from CSRF protection because these are API routes handling JSON data
-@app.route("/api/admin/lock_account", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
-@login_required
-def admin_lock_account():
-    if current_user.account_type not in ["admin", "super_admin"]:
-        return jsonify({"success": False, "message": "Unauthorized. Admins only."}), 403
-
-    data = request.get_json()
-    user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"success": False, "message": "user_id is required."}), 400
-
-    user = Users.query.get(user_id)
-    if not user or user.account_type not in ["employee", "admin"]:
-        return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
-
-    # Prevent super_admin from locking themselves
-    if user.account_type == "super_admin" and user.user_id == current_user.user_id:
-        return jsonify({"success": False, "message": "Super Admin cannot lock their own account."}), 403
-
-    if user.is_locked:
-        return jsonify({"success": False, "message": "Account is already locked."}), 400
-
-    # Lock the account and invalidate the session token
-    user.is_locked = True
-    user.session_token = None  # Invalidate session
-    try:
-        db.session.commit()
-        return jsonify({"success": True, "message": "Account locked successfully."}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "message": f"DB error: {e}"}), 500
-
-
-##############################
-#   ADMIN: UNLOCK ACCOUNT    #
-##############################
-
-# Exempted from CSRF protection because these are API routes handling JSON data
-@app.route("/api/admin/unlock_account", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
-@login_required
-def admin_unlock_account():
-    if current_user.account_type not in ["admin", "super_admin"]:
-        return jsonify({"success": False, "message": "Unauthorized. Admins only."}), 403
-
-    data = request.get_json()
-    user_id = data.get("user_id")
-    if not user_id:
-        return jsonify({"success": False, "message": "user_id is required."}), 400
-
-    user = Users.query.get(user_id)
-    if not user or user.account_type not in ["employee", "admin"]:
-        return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
-
-    # Prevent super_admin from unlocking themselves (if they were locked, which should not happen)
-    if user.account_type == "super_admin" and user.user_id == current_user.user_id:
-        return jsonify({"success": False, "message": "Super Admin cannot unlock their own account."}), 403
-
-    if not user.is_locked:
-        return jsonify({"success": False, "message": "Account is not locked."}), 400
-
-    # Unlock the account
-    user.is_locked = False
-    try:
-        db.session.commit()
-        return jsonify({"success": True, "message": "Account unlocked successfully."}), 200
-    except Exception as e:
-        db.session.rollback()
-        return jsonify({"success": False, "message": f"DB error: {e}"}), 500
-
-
 ##############################
 #       DELETE ACCOUNT       #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/delete_account", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def api_delete_account():
     try:
@@ -1288,21 +1207,15 @@ def api_delete_account():
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
 
 
+
 ##############################
 #      ADMIN SETUP ROUTE     #
 ##############################
 
 @app.route("/admin_setup", methods=["GET", "POST"])
-@login_required  # Protect the route with login_required
 def admin_setup():
-    """
-    This route allows the creation of the first admin account.
-    If an admin already exists, it flashes a message with admin email(s) and redirects to login.
-    Otherwise, it allows creating a new admin account by verifying the root password from .env (ROOT_PASSWORD).
-    """
     existing_admin = Users.query.filter_by(account_type="admin").first()
     if existing_admin:
-        # Admin exists, retrieve all admin emails
         admin_users = Users.query.filter_by(account_type="admin").all()
         admin_emails = [admin.email for admin in admin_users]
         admin_contact_email = ", ".join(admin_emails)
@@ -1357,27 +1270,17 @@ def admin_setup():
 #   SUPER ADMIN ROUTES       #
 ##############################
 
-# Exempted from CSRF protection because these are API routes handling JSON data
 @app.route("/api/elevate_super_admin", methods=["POST"])
-@csrf.exempt  # Exempt CSRF for API route
+@csrf.exempt
 @login_required
 def elevate_super_admin_route():
-    """
-    Allows an admin to elevate to super_admin if:
-    1) No other super_admin exists,
-    2) The admin correctly enters the root password from .env (ROOT_PASSWORD),
-    3) They haven't exceeded 3 attempts in the current session.
-    """
     if current_user.account_type != "admin":
         return jsonify({"success": False, "message": "Unauthorized. Admins only."}), 403
 
-    # Track attempts in session
     attempts = session.get("elevate_super_admin_attempts", 0)
     if attempts >= 3:
-        return jsonify(
-            {"success": False, "message": "Max attempts reached. Please contact an existing super admin."}), 403
+        return jsonify({"success": False, "message": "Max attempts reached. Please contact an existing super admin."}), 403
 
-    # Check if a super_admin already exists
     existing_super_admin = Users.query.filter_by(account_type="super_admin").first()
     if existing_super_admin:
         return jsonify({"success": False, "message": "A super admin already exists."}), 403
@@ -1394,22 +1297,133 @@ def elevate_super_admin_route():
         try:
             current_user.account_type = "super_admin"
             db.session.commit()
-            # Reset attempts upon success
             session["elevate_super_admin_attempts"] = 0
             app.logger.info(f"User {current_user.username} elevated to super_admin at {datetime.now()}")
             return jsonify({"success": True, "message": "Elevated to super admin."}), 200
         except Exception as e:
             db.session.rollback()
             app.logger.error(f"Database error during elevation: {e}")
+            app.logger.error(traceback.format_exc())
             return jsonify({"success": False, "message": f"Database error: {e}"}), 500
     else:
-        # Incorrect password
         attempts += 1
         session["elevate_super_admin_attempts"] = attempts
         if attempts >= 3:
             return jsonify({"success": False, "message": "Incorrect root password. Max attempts reached."}), 403
         else:
             return jsonify({"success": False, "message": "Incorrect root password."}), 401
+
+@app.route("/api/admin/lock_account", methods=["POST"])
+@csrf.exempt
+@login_required
+def admin_lock_account():
+    if current_user.account_type not in ["admin", "super_admin"]:
+        return jsonify({"success": False, "message": "Unauthorized. Admins only."}), 403
+
+    data = request.get_json()
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id is required."}), 400
+
+    user = db.session.get(Users, user_id)
+    if not user or user.account_type not in ["employee", "admin"]:
+        return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
+
+    # Prevent super_admin from locking themselves
+    if user.account_type == "super_admin" and user.user_id == current_user.user_id:
+        return jsonify({"success": False, "message": "Super Admin cannot lock their own account."}), 403
+
+    if user.is_locked:
+        return jsonify({"success": False, "message": "Account is already locked."}), 400
+
+    # Lock the account + invalidate session
+    user.is_locked = True
+    user.session_token = None  # Force logout if user is still active
+
+    try:
+        # Gather all emergencies this user is assigned to
+        assigned_emergencies = Emergencies.query.filter_by(assigned_employee_id=user.user_id).all()
+
+        # For each emergency, unassign + email the customers
+        for em in assigned_emergencies:
+            em.assigned_employee_id = None
+
+            # Email the customer to let them know the employee is no longer tracking
+            customer_obj = db.session.get(Users, em.user_id)
+            if customer_obj:
+                # Provide minimal info
+                send_assignment_email_to_customer(
+                    customer=customer_obj,
+                    emergency_id=em.emergency_id,
+                    location_details=em.location_details,
+                    distress_notes=em.distress_notes if em.distress_notes else "",
+                    assigned=False
+                )
+
+        # Commit DB changes so unassignments take effect
+        db.session.commit()
+
+        # Finally, send an HTML email to the employee about the lock
+        send_employee_locked_email(user)
+
+        return jsonify({
+            "success": True,
+            "message": (
+                "Account locked successfully. "
+                "All assigned emergencies have been unassigned and notifications sent."
+            )
+        }), 200
+    except SQLAlchemyError as e:
+        db.session.rollback()
+        app.logger.error(f"Database error during account lock: {str(e)}")
+        return jsonify({"success": False, "message": "Server error. Please try again later."}), 500
+
+@app.route("/api/admin/unlock_account", methods=["POST"])
+@csrf.exempt
+@login_required
+def admin_unlock_account():
+    if current_user.account_type not in ["admin", "super_admin"]:
+        return jsonify({"success": False, "message": "Unauthorized. Admins only."}), 403
+
+    data = request.get_json()
+    user_id = data.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "user_id is required."}), 400
+
+    user = db.session.get(Users, user_id)
+    if not user or user.account_type not in ["employee", "admin"]:
+        return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
+
+    if not user.is_locked:
+        return jsonify({"success": False, "message": "Account is not locked."}), 400
+
+    user.is_locked = False
+
+    try:
+        db.session.commit()
+
+        # Send unlock email
+        try:
+            html_content = render_template(
+                "emails/account_unlocked.html",
+                user=user,
+                current_year=datetime.utcnow().year
+            )
+            send_email(
+                to_address=user.email,
+                subject="Your Account Has Been Unlocked",
+                body=html_content,
+                html=True
+            )
+            app.logger.info(f"Unlock email sent to {user.username} ({user.email}).")
+        except Exception as e:
+            app.logger.error(f"Failed to send unlock email to {user.username}: {e}")
+
+        return jsonify({"success": True, "message": "Account unlocked successfully."}), 200
+    except Exception as e:
+        db.session.rollback()
+        app.logger.error(f"Database error during account unlock: {str(e)}")
+        return jsonify({"success": False, "message": "Server error. Please try again later."}), 500
 
 
 #########################
@@ -1439,56 +1453,92 @@ def send_assignment_email_to_employee(
 ):
     if assigned:
         subject = "New Emergency Assignment"
-        # Remove the [ASSIGNED_EMPLOYEE=3] marker from distress_notes
-        distress_notes_clean = distress_notes.split("[ASSIGNED_EMPLOYEE=")[0].strip() if distress_notes else "N/A"
-
+        app.logger.debug(f"Sending assignment email to employee {employee.username} with distress_notes: {distress_notes}")
+        # Render a hypothetical HTML template if there is one, else basic text
         body = f"""\
 Dear {employee.username},
 
 You have been assigned to track the following customer's emergency.
 
-**Emergency Details:**
-- **Emergency Log ID:** {emergency_id if emergency_id else 'N/A'}
-- **Location Details:** {location_details if location_details else 'N/A'}
-- **Distress Notes:** {distress_notes_clean if distress_notes_clean else 'N/A'}
+Emergency Details:
+- Emergency Log ID: {emergency_id if emergency_id else 'N/A'}
+- Location Details: {location_details if location_details else 'N/A'}
+- Distress Notes: {distress_notes if distress_notes else 'N/A'}
 
-**Customer Details:**
-- **Name:** {customer.username}
-- **Phone:** {customer.phone_number}
-- **Email:** {customer.email}
+Customer Details:
+- Name: {customer.username if customer else 'Unknown'}
+- Phone: {customer.phone_number if customer else 'N/A'}
+- Email: {customer.email if customer else 'N/A'}
 
-**Assigned by Admin:**
-- **Username:** {admin_user.username if admin_user else 'N/A'}
-- **Phone:** {admin_user.phone_number if admin_user else 'N/A'}
-- **Email:** {admin_user.email if admin_user else 'N/A'}
+Assigned by Admin:
+- Username: {admin_user.username if admin_user else 'N/A'}
+- Phone: {admin_user.phone_number if admin_user else 'N/A'}
+- Email: {admin_user.email if admin_user else 'N/A'}
 
-Best regards,\
-Cave Country Canoes
+- Cave Country Canoes
 """
     else:
         subject = "Emergency Tracking Termination Notice"
-        # Remove the [ASSIGNED_EMPLOYEE=3] marker from distress_notes
-        distress_notes_clean = distress_notes.split("[ASSIGNED_EMPLOYEE=")[0].strip() if distress_notes else "N/A"
-
+        app.logger.debug(f"Sending termination email to employee {employee.username} with distress_notes: {distress_notes}")
         body = f"""\
 Dear {employee.username},
 
-An admin ({admin_user.username if admin_user else 'N/A'}) has terminated your tracking of the following customer's emergency.
+An admin ({admin_user.username if admin_user else 'N/A'}) has terminated your tracking of:
 
-**Emergency Details:**
-- **Emergency Log ID:** {emergency_id if emergency_id else 'N/A'}
-- **Location Details:** {location_details if location_details else 'N/A'}
-- **Distress Notes:** {distress_notes_clean if distress_notes_clean else 'N/A'}
+Emergency Details:
+- Emergency Log ID: {emergency_id if emergency_id else 'N/A'}
+- Location Details: {location_details if location_details else 'N/A'}
+- Distress Notes: {distress_notes if distress_notes else 'N/A'}
 
-**Customer Details:**
-- **Name:** {customer.username}
-- **Phone:** {customer.phone_number}
-- **Email:** {customer.email}
+Customer Details:
+- Name: {customer.username if customer else 'Unknown'}
+- Phone: {customer.phone_number if customer else 'N/A'}
+- Email: {customer.email if customer else 'N/A'}
 
-Best regards,\
-Cave Country Canoes
+- Cave Country Canoes
 """
-    send_email(employee.email, subject, body, html=True)
+    send_email(employee.email, subject, body, html=False)
+
+def send_employee_not_tracking_email(customer, employee, emergency_id):
+    html_content = render_template(
+        "emails/employee_not_tracking.html",
+        customer=customer,
+        employee=employee,
+        emergency_id=emergency_id,
+        current_year=datetime.now().year
+    )
+    send_email(
+        to_address=customer.email,
+        subject="Cave Country Canoes Employee No Longer Tracking Your Emergency",
+        body=html_content,
+        html=True
+    )
+
+def send_admin_locked_email(admin_user):
+    html_content = render_template(
+        "emails/admin_locked.html",
+        admin=admin_user,
+        current_year=datetime.now().year
+    )
+    send_email(
+        to_address=admin_user.email,
+        subject="Admin Account Locked",
+        body=html_content,
+        html=True
+    )
+
+def send_account_unlocked_email(user):
+    html_content = render_template(
+        "emails/account_unlocked.html",
+        user=user,
+        current_year=datetime.now().year
+    )
+    send_email(
+        to_address=user.email,
+        subject="Your Cave Country Canoes Account Has Been Unlocked",
+        body=html_content,
+        html=True
+    )
 
 
 def send_assignment_email_to_customer(
@@ -1503,49 +1553,72 @@ def send_assignment_email_to_customer(
 ):
     if assigned:
         subject = "Emergency Tracking Assignment"
-        # Remove the [ASSIGNED_EMPLOYEE=3] marker from distress_notes
-        distress_notes_clean = distress_notes.split("[ASSIGNED_EMPLOYEE=")[0].strip() if distress_notes else "N/A"
-
+        app.logger.debug(f"Sending assignment email to customer {customer.username} with distress_notes: {distress_notes}")
         body = f"""\
 Dear {customer.username},
 
 An employee has been assigned to your emergency log.
 
-**Emergency Details:**
-- **Emergency Log ID:** {emergency_id if emergency_id else 'N/A'}
-- **Location Details:** {location_details if location_details else 'N/A'}
-- **Distress Notes:** {distress_notes_clean if distress_notes_clean else 'N/A'}
+Emergency Details:
+- Emergency Log ID: {emergency_id if emergency_id else 'N/A'}
+- Location Details: {location_details if location_details else 'N/A'}
+- Distress Notes: {distress_notes if distress_notes else 'N/A'}
 
-**Employee Details:**
-- **Username:** {employee_username if employee_username else 'N/A'}
-- **Phone Number:** {employee_phone if employee_phone else 'N/A'}
-- **Email:** {employee_email if employee_email else 'N/A'}
+Employee Details:
+- Username: {employee_username if employee_username else 'N/A'}
+- Phone Number: {employee_phone if employee_phone else 'N/A'}
+- Email: {employee_email if employee_email else 'N/A'}
 
 They may reach out to you soon if needed.
 
-Best regards,\
-Cave Country Canoes
+- Cave Country Canoes
 """
     else:
         subject = "Emergency Tracking Termination"
+        app.logger.debug(f"Sending termination email to customer {customer.username} with distress_notes: {distress_notes}")
         body = f"""\
 Dear {customer.username},
 
-Your assigned employee has been unassigned by an admin. If you have any questions, please reach out via chat.
+Your assigned employee has been unassigned by an admin.
+If you have any questions, please reach out via chat.
 
-Best regards,\
-Cave Country Canoes
+- Cave Country Canoes
 """
-    send_email(customer.email, subject, body, html=True)
+    send_email(customer.email, subject, body, html=False)
+
+def send_employee_locked_email(employee):
+    """
+    Sends an HTML email to the locked employee, letting them know
+    that their account has been locked and all emergencies unassigned.
+    """
+    subject = "Your Account Has Been Locked"
+    current_year = datetime.now().year
+
+    # Render the HTML template with context
+    html_content = render_template(
+        "emails/employee_locked.html",
+        employee=employee,
+        current_year=current_year
+    )
+
+    # Now use existing send_email to send HTML content
+    send_email(
+        to_address=employee.email,
+        subject=subject,
+        body=html_content,
+        html=True  # Indicate this is HTML
+    )
 
 
 def send_email(to_address, subject, body, html=False):
-    email_sender = os.getenv("MAIL_USERNAME")
-    email_password = os.getenv("MAIL_PASSWORD")
+    email_sender = app.config['MAIL_USERNAME']
+    email_password = app.config['MAIL_PASSWORD']
     em = EmailMessage()
     em["From"] = email_sender
     em["To"] = to_address
     em["Subject"] = subject
+    em.set_charset('utf-8')
+
     if html:
         em.add_alternative(body, subtype='html')
     else:
@@ -1553,26 +1626,24 @@ def send_email(to_address, subject, body, html=False):
 
     context = ssl.create_default_context()
     try:
-        with smtplib.SMTP_SSL(os.getenv("MAIL_SERVER", "smtp.gmail.com"),
-                              int(os.getenv("MAIL_PORT", 465)), context=context) as smtp:
+        with smtplib.SMTP_SSL(app.config['MAIL_SERVER'], app.config['MAIL_PORT'], context=context) as smtp:
             smtp.login(email_sender, email_password)
-            smtp.sendmail(email_sender, to_address, em.as_string())
+            smtp.send_message(em)
         app.logger.info(f"Email sent to {to_address} with subject '{subject}'.")
     except Exception as e:
         app.logger.error(f"Failed to send email to {to_address}: {e}")
+        app.logger.error(traceback.format_exc())
 
 
 #########################
-#       RUN SERVER      #
+#  SESSION VALIDATION   #
 #########################
 
-# Session Token Validation
 @app.before_request
 def validate_session_token():
     if current_user.is_authenticated:
         session_token = session.get('session_token')
         if not session_token or current_user.session_token != session_token:
-            # Invalidate the session
             logout_user()
             session.clear()
             flash("Your session has been terminated. Please log in again.", "warning")

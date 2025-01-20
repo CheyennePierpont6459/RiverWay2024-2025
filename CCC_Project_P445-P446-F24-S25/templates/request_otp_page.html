@@ -6,7 +6,7 @@
 
 <form id="requestOtpForm">
   <!-- CSRF Token -->
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
   <label for="email">Email:</label><br>
   <input type="email" id="email" placeholder="Enter your email" required><br>
   <label for="password">Password:</label><br>
@@ -23,21 +23,30 @@
     const email = document.getElementById('email').value.trim();
     const password = document.getElementById('password').value.trim();
 
-    const response = await fetch('/request_otp_page', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
+    try {
+      const response = await fetch('/request_otp_page', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
 
-    const result = await response.json();
-    const resultDiv = document.getElementById('requestOtpResult');
-    if (result.success) {
-      resultDiv.innerHTML = `<p class="text-success">${result.message}</p>`;
-      setTimeout(() => {
-        window.location.href = "/otp_verify"; // Redirect to OTP verification page
-      }, 2000);
-    } else {
-      resultDiv.innerHTML = `<p class="text-danger">${result.message}</p>`;
+      const result = await response.json();
+      const resultDiv = document.getElementById('requestOtpResult');
+
+      if (result.success) {
+        resultDiv.innerText = result.message; // XSS-proof
+        resultDiv.style.color = 'green'; // Success feedback
+        setTimeout(() => {
+          window.location.href = "/otp_verify"; // Redirect to OTP verification page
+        }, 2000);
+      } else {
+        resultDiv.innerText = result.message; // XSS-proof
+        resultDiv.style.color = 'red'; // Error feedback
+      }
+    } catch (error) {
+      const resultDiv = document.getElementById('requestOtpResult');
+      resultDiv.innerText = `Error: ${error.message}`; // XSS-proof
+      resultDiv.style.color = 'red'; // Error feedback
     }
   });
 </script>

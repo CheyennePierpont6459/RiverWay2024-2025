@@ -76,7 +76,7 @@
       }
     } catch (error) {
       console.error('Error deleting account:', error);
-      document.getElementById('deleteAccountResult').innerHTML =
+      document.getElementById('deleteAccountResult').innerText =
         `<p class="text-danger">An error occurred: ${error}</p>`;
     }
   });

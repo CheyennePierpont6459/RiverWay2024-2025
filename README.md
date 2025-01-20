@@ -105,9 +105,9 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
         ```
 You can also set up the SQL server instance by using [MySQL Workbench](https://www.mysql.com/products/workbench/). Take the provided code in ccc_emergency_map.sql, copy it, and add it to a created schema named “ccc_emergency_map.sql”.
 
-    - **Initialize Database Migrations** 
-   
-    - Change directory to ~/CCC_Project_P445-P446-F24-S25
+6.
+    - **Initialize Database Migrations**
+    - **Change directory to ~/CCC_Project_P445-P446-F24-S25**
 
         ```bash
       python -m flask db init
@@ -120,7 +120,7 @@ You can also set up the SQL server instance by using [MySQL Workbench](https://w
 
         ``` 
 
-5. **Run the Application** 
+7. **Run the Application** 
 
     ```bash 
 

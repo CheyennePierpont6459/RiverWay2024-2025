@@ -40,9 +40,10 @@
             body: JSON.stringify({ email, password })
           });
           const data = await response.json();
+          const resultDiv = document.getElementById('result');
           if (data.success) {
-            document.getElementById('result').innerHTML =
-              `<p style="color:green;">${data.message}</p>`;
+            resultDiv.innerText = data.message; // XSS-proof
+            resultDiv.style.color = "green";
             // Redirect based on account_type
             setTimeout(() => {
               if (data.account_type === "admin" || data.account_type === "super_admin") {
@@ -50,18 +51,19 @@
               } else if (data.account_type === "customer") {
                 window.location.href = "/customer_dashboard";
               } else if (data.account_type === "employee") {
-                window.location.href = "/employee_dashboard";
+                window.location.href = "/employee/home";
               } else {
                 window.location.href = "/";
               }
             }, 1000);
           } else {
-            document.getElementById('result').innerHTML =
-              `<p style="color:red;">${data.message}</p>`;
+            resultDiv.innerText = data.message; // XSS-proof
+            resultDiv.style.color = "red";
           }
         } catch (error) {
-          document.getElementById('result').innerHTML =
-            `<p style="color:red;">Error: ${error.message}</p>`;
+          const resultDiv = document.getElementById('result');
+          resultDiv.innerText = `Error: ${error.message}`; // XSS-proof
+          resultDiv.style.color = "red";
         }
       });
     });
