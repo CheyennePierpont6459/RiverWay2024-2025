@@ -4,6 +4,7 @@
 
 {% block content %}
     <h2>Welcome, {{ current_user.username }}!</h2>
+    <a href="{{ url_for('admin_manage_staff', subsession_id=request.args.get('subsession_id')) }}">Manage Staff</a>
     <h3>Dashboard Statistics</h3>
     <ul>
         <li>Total Customers: {{ stats.total_customers }}</li>

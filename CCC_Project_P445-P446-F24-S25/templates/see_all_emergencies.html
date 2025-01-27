@@ -26,13 +26,16 @@
 {% endif %}
 
 <script>
+    // Retrieve CSRF token from meta tag
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     async function claimEmergency(emergencyId) {
         try {
             const response = await fetch('/employee/claim_emergency', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': CSRF_TOKEN  // Include CSRF token here
+                    'X-CSRFToken': CSRF_TOKEN  // Include the CSRF token here
                 },
                 body: JSON.stringify({ emergency_id: emergencyId })
             });
@@ -40,7 +43,7 @@
 
             if (response.ok) {
                 alert(result.message);
-                location.reload(); // Refresh the page to reflect changes
+                location.reload();
             } else {
                 alert(result.message || 'Failed to claim emergency.');
             }

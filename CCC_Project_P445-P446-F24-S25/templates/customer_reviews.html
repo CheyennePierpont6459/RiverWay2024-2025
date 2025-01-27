@@ -1,4 +1,4 @@
-﻿{% extends "customer_private.html" %}
+﻿﻿{% extends "customer_private.html" %}
 
 {% block content %}
 <h1>Submit Review</h1>
@@ -24,68 +24,4 @@
 
 <h2>My Reviews</h2>
 <div id="reviewList"></div>
-
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const reviewForm = document.getElementById('reviewForm');
-    const reviewResult = document.getElementById('reviewResult');
-    const reviewList = document.getElementById('reviewList');
-
-    reviewForm.addEventListener('submit', function(e) {
-      e.preventDefault();
-      const rating_header = document.getElementById('ratingHeader').value.trim();
-      const rating_notes = document.getElementById('ratingNotes').value.trim();
-      const rating_value = parseInt(document.getElementById('ratingValue').value.trim(), 10);
-
-      fetch('/api/reviews', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ rating_header, rating_notes, rating_value })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          reviewResult.innerHTML = `<p class="success">${data.message}</p>`;
-          loadReviews();
-          reviewForm.reset();
-        } else {
-          reviewResult.innerHTML = `<p class="error">${data.message}</p>`;
-        }
-      })
-      .catch(err => {
-        reviewResult.innerHTML = `<p class="error">${err.message}</p>`;
-      });
-    });
-
-    function loadReviews() {
-      fetch('/api/reviews', { method: 'GET' })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            renderReviews(data.reviews);
-          } else {
-            reviewList.innerHTML = `<p class="error">${data.message}</p>`;
-          }
-        })
-        .catch(err => {
-          reviewList.innerHTML = `<p class="error">${err.message}</p>`;
-        });
-    }
-
-    function renderReviews(reviews) {
-      if (!reviews || reviews.length === 0) {
-        reviewList.innerHTML = "<p>No reviews yet.</p>";
-      } else {
-        let html = "<ul>";
-        reviews.forEach(r => {
-          html += `<li><strong>${r.rating_header} (${r.rating_value}/5)</strong><br>${r.rating_notes}</li>`;
-        });
-        html += "</ul>";
-        reviewList.innerHTML = html;
-      }
-    }
-
-    loadReviews();
-  });
-</script>
 {% endblock %}

@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number VARCHAR(20) NOT NULL,
     account_type VARCHAR(20) DEFAULT 'customer' NOT NULL,
     is_locked BOOLEAN NOT NULL DEFAULT FALSE, -- Existing Column for Account Locking
-    session_token VARCHAR(64) DEFAULT NULL, -- New Column for Session Invalidation
+    session_token VARCHAR(64) DEFAULT NULL UNIQUE, -- New Column for Session Invalidation
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB;
 

@@ -1,257 +1,289 @@
 ﻿/* static/css/style.css */
 
-/* General Styles */
-body {
-    font-family: Arial, sans-serif;
+/* ==============================
+   Base / Global Styles
+   ============================== */
+
+/* Resets & Box Sizing */
+* {
+    box-sizing: border-box;
     margin: 0;
     padding: 0;
-    min-height: 100vh;
-    background-color: #f0f0f0;
 }
 
-/* Navigation Bar */
+body {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    line-height: 1.5;
+    color: #333;
+}
+
+/* ==============================
+   Navbar / Header
+   ============================== */
+
 .navbar {
     background-color: #333;
     overflow: hidden;
     padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
 }
 
 .navbar a {
-    float: left;
     color: #f2f2f2;
     text-align: center;
     padding: 8px 16px;
     text-decoration: none;
     font-size: 17px;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 .navbar a:hover {
     background-color: #ddd;
-    color: black;
+    color: #333;
 }
 
-.logout-button {
-    float: right;
-    color: black;
-    background-color: white;
-    border: 2px solid white;
-    font-size: 17px;
-    padding: 8px 16px;
-    cursor: pointer;
-    border-radius: 5px;
-    font-weight: bold;
-    transition: all 0.3s ease;
+/* Logout Button Styling */
+.navbar form {
+    margin-left: auto; /* Pushes the form to the right */
 }
 
-.logout-button:hover {
-    background-color: black;
-    color: white;
-    border-color: black;
-}
-
-/* Content Area */
-.content {
-    padding: 20px;
-}
-
-/* Emergencies Table */
-.emergencies-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    background-color: #fff;
-}
-
-.emergencies-table th, .emergencies-table td {
-    border: 1px solid #ddd;
-    padding: 12px;
-    text-align: left;
-}
-
-.emergencies-table th {
-    background-color: #007bff;
-    color: white;
-}
-
-.emergencies-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.emergencies-table tr:hover {
-    background-color: #f1f1f1;
-}
-
-/* Assign Container */
-.assign-container {
-    display: flex;
-    align-items: center;
-}
-
-.assign-select {
-    padding: 8px;
-    margin-right: 10px;
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    flex: 1;
-}
-
-/* Button Styles */
-button {
-    padding: 8px 16px;
-    font-size: 14px;
+.navbar button {
+    background-color: transparent;
     border: none;
-    border-radius: 4px;
+    color: #f2f2f2;
+    padding: 8px 16px;
+    font-size: 17px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    transition: background-color 0.3s ease, color 0.3s ease;
 }
 
-.btn-assign {
-    background-color: #28a745;
-    color: white;
+.navbar button:hover {
+    background-color: #ddd;
+    color: #333;
 }
 
-.btn-assign:hover {
-    background-color: #218838;
-}
+/* ==============================
+   Main Content Container
+   ============================== */
 
-.btn-unassign {
-    background-color: #dc3545;
-    color: white;
-}
-
-.btn-unassign:hover {
-    background-color: #c82333;
-}
-
-/* Disabled Select Options */
-select option[disabled] {
-    color: #999;
-}
-
-/* Modal Styles (if used in future) */
-.modal {
-    display: none; /* Hidden by default */
-    position: fixed; /* Stay in place */
-    z-index: 1; /* Sit on top */
-    left: 0;
-    top: 0;
-    width: 100%; /* Full width */
-    height: 100%; /* Full height */
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-}
-
-.modal-content {
-    background-color: #fefefe;
-    margin: 15% auto; /* 15% from top and centered */
+.content {
+    flex: 1; /* Allows the content to grow and fill available space */
     padding: 20px;
-    border: 1px solid #888;
-    width: 50%; /* Could be more or less, depending on screen size */
 }
 
-.close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
+/* ==============================
+   Flash Messages
+   ============================== */
+
+.flash {
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
     font-weight: bold;
 }
 
-.close:hover,
-.close:focus {
-    color: black;
-    text-decoration: none;
-    cursor: pointer;
+.flash-success {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
 }
 
-/* Login Container */
-.login-container {
+.flash-error {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.flash-info {
+    background-color: #cce5ff;
+    color: #004085;
+    border: 1px solid #b8daff;
+}
+
+.flash-warning {
+    background-color: #fff3cd;
+    color: #856404;
+    border: 1px solid #ffeeba;
+}
+
+/* ==============================
+   Footer
+   ============================== */
+
+.footer {
+    background-color: #333;
+    color: #f2f2f2;
+    text-align: center;
+    padding: 15px 20px;
+    font-size: 0.9rem;
+}
+
+.footer p {
+    margin: 0;
+}
+
+/* ==============================
+   Form Container Styles
+   ============================== */
+
+.form-container {
     background-color: #fff;
-    padding: 20px 30px;
+    padding: 30px 40px;
     border-radius: 10px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
     width: 90%;
     max-width: 400px;
-    margin: 50px auto;
-    text-align: center;
+    margin: 40px auto;
 }
 
-.login-container h1 {
-    font-size: 2rem;
+.form-container h1,
+.form-container h2 {
+    text-align: center;
     margin-bottom: 20px;
     color: #333;
 }
 
-/* Form Styles */
-form {
-    width: 100%;
+.form-group {
+    margin-bottom: 15px;
 }
 
-form label {
+.form-group label {
     display: block;
     text-align: left;
     font-weight: bold;
     margin-bottom: 5px;
-    margin-top: 15px;
 }
 
-form input, form textarea {
+.form-group input,
+.form-group textarea {
     width: 100%;
     padding: 12px;
-    margin-bottom: 10px;
     border: 1px solid #ccc;
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 1rem;
-    box-sizing: border-box;
+    transition: border-color 0.3s ease;
 }
 
-form textarea {
-    resize: vertical;
-    height: 100px;
+.form-group input:focus,
+.form-group textarea:focus {
+    border-color: #007bff;
+    outline: none;
 }
 
-form button {
+.form-container button {
     width: 100%;
     padding: 14px;
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: bold;
     background-color: #007bff;
     color: white;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     cursor: pointer;
-    margin-top: 10px;
+    transition: background-color 0.3s ease;
 }
 
-form button:hover {
+.form-container button:hover {
     background-color: #0056b3;
 }
 
-/* Flash Messages */
-.flash {
-    padding: 10px;
-    margin-bottom: 20px;
-    border-radius: 5px;
+
+
+
+/* ==============================
+   Responsive Design
+   ============================== */
+
+@media (max-width: 768px) {
+    .navbar a,
+    .navbar button {
+        padding: 10px 15px;
+        font-size: 15px;
+    }
+
+    .content {
+        padding: 15px;
+    }
+
+    .footer {
+        padding: 10px 15px;
+        font-size: 0.8rem;
+    }
+
+    /* Emergencies Table Adjustments */
+    .emergencies-table th,
+    .emergencies-table td {
+        padding: 8px;
+        font-size: 14px;
+    }
+
+    /* Assign Container Adjustments */
+    .assign-container {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .assign-select {
+        margin-right: 0;
+        margin-bottom: 10px;
+    }
+
+    /* Button Adjustments */
+    .btn-assign,
+    .btn-unassign {
+        width: 100%;
+    }
+
+    /* Login Container */
+    .login-container {
+        margin: 20px auto;
+    }
+
+    form label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+    }
+
+    form input {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 10px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+
+    form button {
+        padding: 10px 20px;
+        font-size: 16px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+
+    form button:hover {
+        background-color: #0056b3;
+    }
+
+    #updateAccountResult,
+    #mfaRequestResult {
+        margin-top: 10px;
+        color: green;
+    }
 }
 
-.flash.success {
-    background-color: #d4edda;
-    color: #155724;
-}
-
-.flash.error {
-    background-color: #f8d7da;
-    color: #721c24;
-}
-
-.flash.info {
-    background-color: #cce5ff;
-    color: #004085;
-}
-
-.flash.warning {
-    background-color: #fff3cd;
-    color: #856404;
-}
+/* ==============================
+   Additional Components (Optional)
+   ============================== */
 
 /* Chat Box */
 .chat-box {
@@ -290,76 +322,14 @@ form button:hover {
     color: red;
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .navbar a, .logout-button {
-        float: none;
-        display: block;
-        text-align: left;
-    }
+img {
+    max-width: 100%;  /* Ensures the image doesn't exceed the screen width */
+    height: auto;     /* Adjusts height automatically to maintain aspect ratio */
+    display: block;   /* Centers the image */
+    margin: 20px auto;  /* Adds space around the image and centers it */
+}
 
-    .login-container {
-        margin: 20px auto;
-    }
-
-    form {
-        width: 100%;
-        margin-bottom: 20px;
-    }
-
-    form label {
-        display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-    }
-
-    form input {
-        width: 100%;
-        padding: 10px;
-        margin-bottom: 10px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        font-size: 14px;
-    }
-
-    form button {
-        padding: 10px 20px;
-        font-size: 16px;
-        background-color: #007bff;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-    }
-
-    form button:hover {
-        background-color: #0056b3;
-    }
-
-    #updateAccountResult, #mfaRequestResult {
-        margin-top: 10px;
-        color: green;
-    }
-
-    /* Emergencies Table Adjustments */
-    .emergencies-table th, .emergencies-table td {
-        padding: 8px;
-        font-size: 14px;
-    }
-
-    /* Assign Container Adjustments */
-    .assign-container {
-        flex-direction: column;
-        align-items: stretch;
-    }
-
-    .assign-select {
-        margin-right: 0;
-        margin-bottom: 10px;
-    }
-
-    /* Button Adjustments */
-    .btn-assign, .btn-unassign {
-        width: 100%;
-    }
+#image-container {
+    position: relative;
+    display: inline-block;
 }

@@ -10,7 +10,7 @@ import traceback  # For detailed error logging
 
 from flask import (
     Flask, render_template, redirect, url_for,
-    request, jsonify, session, flash, abort
+    request, jsonify, session, flash
 )
 from flask_sqlalchemy import SQLAlchemy
 from flask_migrate import Migrate
@@ -19,21 +19,19 @@ from flask_login import (
     LoginManager, login_user, current_user,
     logout_user, login_required, UserMixin
 )
-from flask_mail import Mail, Message
-
+from flask_mail import Mail
 from dotenv import load_dotenv
 from urllib.parse import quote_plus
 from sqlalchemy import text
-from sqlalchemy.exc import SQLAlchemyError, SAWarning
+from sqlalchemy.exc import SAWarning
 from flask_wtf import CSRFProtect
 
 import warnings
 
 warnings.filterwarnings("ignore", category=SAWarning)  # Temporarily suppress SAWarnings
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
-
 
 #########################
 #      CONFIGURATION    #
@@ -61,7 +59,6 @@ class ProductionConfig(Config):
         f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
     )
 
-
 #########################
 #   APP & EXTENSIONS    #
 #########################
@@ -71,7 +68,6 @@ if env == "production":
     app_config = ProductionConfig
 else:
     app_config = DevelopmentConfig
-
 
 app = Flask(__name__)
 app.config.from_object(app_config)
@@ -84,7 +80,7 @@ login_manager = LoginManager(app)
 login_manager.login_view = "login_page"
 login_manager.login_message_category = "info"
 
-# Mail config
+# Mail Configuration
 app.config['MAIL_SERVER'] = os.getenv('MAIL_SERVER', 'smtp.gmail.com')
 app.config['MAIL_PORT'] = int(os.getenv('MAIL_PORT', 465))
 app.config['MAIL_USE_SSL'] = os.getenv('MAIL_USE_SSL', 'True') == 'True'
@@ -118,7 +114,6 @@ def parse_assigned_employee_id(distress_text):
     except:
         return None
 
-
 def update_assigned_employee_id(distress_text, new_employee_id=None):
     if not distress_text:
         distress_text = ""
@@ -137,22 +132,29 @@ def update_assigned_employee_id(distress_text, new_employee_id=None):
             distress_text = marker
     return distress_text.strip()
 
-
 def generate_secure_otp():
     random_bytes = secrets.token_bytes(16)
     return hashlib.sha256(random_bytes).hexdigest()[:6].upper()
 
-
 def get_local_ip():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
-            s.connect(("8.8.8.8",80))
+            s.connect(("8.8.8.8", 80))
             local_ip = s.getsockname()[0]
     except Exception:
         local_ip = "127.0.0.1"
     return local_ip
 
+#########################
+#  SESSION TOKEN UTILS  #
+#########################
 
+def generate_unique_session_token():
+    while True:
+        token = secrets.token_hex(32)
+        existing_user = Users.query.filter_by(session_token=token).first()
+        if not existing_user:
+            return token
 
 ##############################
 #         MODELS             #
@@ -161,7 +163,6 @@ def get_local_ip():
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Users, int(user_id))
-
 
 class Users(db.Model, UserMixin):
     __tablename__ = "users"
@@ -172,7 +173,7 @@ class Users(db.Model, UserMixin):
     phone_number = db.Column(db.String(20), nullable=False)
     account_type = db.Column(db.String(20), nullable=False, default="customer")
     is_locked = db.Column(db.Boolean, nullable=False, default=False)
-    session_token = db.Column(db.String(64), nullable=True)
+    session_token = db.Column(db.String(64), nullable=True, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now())
 
     @property
@@ -186,17 +187,17 @@ class Users(db.Model, UserMixin):
         lazy=True,
         foreign_keys="Emergencies.assigned_employee_id"
     )
-
     emergencies_created = db.relationship(
         "Emergencies",
         back_populates="customer",
         lazy=True,
         foreign_keys="Emergencies.user_id"
     )
-
     chat_messages = db.relationship("ChatMessages", back_populates="user", lazy=True)
     ratings = db.relationship("Ratings", back_populates="user", lazy=True)
 
+    def verify_password(self, password):
+        return bcrypt.check_password_hash(self.password_hash, password)
 
 class Ratings(db.Model):
     __tablename__ = "ratings"
@@ -212,7 +213,6 @@ class Ratings(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now())
 
     user = db.relationship("Users", back_populates="ratings")
-
 
 class Emergencies(db.Model):
     __tablename__ = "emergencies"
@@ -232,15 +232,11 @@ class Emergencies(db.Model):
         back_populates="assigned_emergencies",
         foreign_keys=[assigned_employee_id]
     )
-
     customer = db.relationship(
         "Users",
         back_populates="emergencies_created",
         foreign_keys=[user_id]
     )
-
-
-
 
 class ChatMessages(db.Model):
     __tablename__ = "chat_messages"
@@ -255,7 +251,6 @@ class ChatMessages(db.Model):
 
     user = db.relationship("Users", back_populates="chat_messages")
 
-
 class MFA(db.Model):
     __tablename__ = "mfa"
     mfa_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -267,6 +262,19 @@ class MFA(db.Model):
 
 
 ##############################
+#       CONTEXT PROCESSOR    #
+##############################
+
+@app.context_processor
+def inject_session_token():
+    """
+    Injects 'session_token' into the context of all templates.
+    """
+    if current_user.is_authenticated:
+        return dict(session_token=current_user.session_token)
+    return dict(session_token='')
+
+##############################
 #       ROUTES / VIEWS       #
 ##############################
 
@@ -274,48 +282,51 @@ class MFA(db.Model):
 def index():
     return redirect(url_for("login_page"))
 
-
 @app.route("/login_page", methods=["GET", "POST"])
 def login_page():
     if current_user.is_authenticated:
         if current_user.account_type in ["admin", "super_admin"]:
-            return redirect(url_for("admin_home"))
+            return redirect(url_for("admin_home", st=current_user.session_token))
         elif current_user.account_type == "customer":
-            return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("customer_dashboard", st=current_user.session_token))
         elif current_user.account_type == "employee":
-            return redirect(url_for("employee_home"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+
     if request.method == "POST":
         email = request.form.get("email")
         password = request.form.get("password")
         user = Users.query.filter_by(email=email).first()
         if user and not user.is_locked and user.verify_password(password):
-            login_user(user)
-            user.session_token = secrets.token_hex(32)
+            user.session_token = generate_unique_session_token()
             db.session.commit()
+
+            login_user(user)
             session['session_token'] = user.session_token
             flash("Logged in successfully!", "success")
+
             if user.account_type in ["admin", "super_admin"]:
-                return redirect(url_for("admin_home"))
+                return redirect(url_for("admin_home", st=user.session_token))
             elif user.account_type == "customer":
-                return redirect(url_for("customer_dashboard"))
+                return redirect(url_for("customer_dashboard", st=user.session_token))
             elif user.account_type == "employee":
-                return redirect(url_for("employee_home"))
+                return redirect(url_for("employee_home", st=user.session_token))
         elif user and user.is_locked:
             flash("Your account is locked. Please contact support.", "danger")
         else:
             flash("Invalid email or password.", "danger")
-    return render_template("login.html")
 
+    return render_template("login.html")
 
 @app.route("/signup_page", methods=["GET", "POST"])
 def signup_page():
     if current_user.is_authenticated:
         if current_user.account_type in ["admin", "super_admin"]:
-            return redirect(url_for("admin_home"))
+            return redirect(url_for("admin_home", st=current_user.session_token))
         elif current_user.account_type == "customer":
-            return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("customer_dashboard", st=current_user.session_token))
         elif current_user.account_type == "employee":
-            return redirect(url_for("employee_home"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+
     if request.method == "POST":
         username = request.form.get("username").strip()
         email = request.form.get("email").strip()
@@ -352,36 +363,35 @@ def signup_page():
             return render_template("signup.html")
     return render_template("signup.html")
 
-
 @app.route("/customer_dashboard")
 @login_required
 def customer_dashboard():
     if current_user.account_type == "customer":
         return render_template("customer_dashboard.html", username=current_user.username)
     elif current_user.account_type in ["admin", "super_admin"]:
-        return redirect(url_for("admin_home"))
+        return redirect(url_for("admin_home", st=current_user.session_token))
     else:
-        return redirect(url_for("employee_home"))
+        return redirect(url_for("employee_home", st=current_user.session_token))
 
 @app.route("/reviews_page")
 @login_required
 def reviews_page():
     if current_user.account_type != "customer":
         if current_user.account_type in ["admin", "super_admin"]:
-            return redirect(url_for("admin_home"))
+            return redirect(url_for("admin_home", st=current_user.session_token))
         else:
-            return redirect(url_for("employee_home"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
     return render_template("customer_reviews.html")
-
 
 @app.route("/submit_log_page", methods=["GET", "POST"])
 @login_required
 def submit_log_page():
     if current_user.account_type != "customer":
         if current_user.account_type in ["admin", "super_admin"]:
-            return redirect(url_for("admin_home"))
+            return redirect(url_for("admin_home", st=current_user.session_token))
         else:
-            return redirect(url_for("employee_home"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+
     if request.method == "POST":
         location_details = request.form.get("location_details").strip()
         distress_notes = request.form.get("distress_notes").strip()
@@ -397,19 +407,17 @@ def submit_log_page():
             db.session.add(new_emergency)
             db.session.commit()
             flash("Emergency log submitted successfully!", "success")
-            return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("customer_dashboard", st=current_user.session_token))
         except Exception as e:
             db.session.rollback()
             flash(f"Database error: {e}", "danger")
             return render_template("customer_submit_log.html")
     return render_template("customer_submit_log.html")
 
-
 @app.route("/chat")
 @login_required
 def chat():
     return render_template("chat.html", username=current_user.username, account_type=current_user.account_type)
-
 
 ##############################
 #   ADMIN DASHBOARD ROUTES   #
@@ -420,8 +428,8 @@ def chat():
 def admin_home():
     if current_user.account_type not in ["admin", "super_admin"]:
         if current_user.account_type == "employee":
-            return redirect(url_for("employee_home"))
-        return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+        return redirect(url_for("customer_dashboard", st=current_user.session_token))
 
     total_customers = Users.query.filter_by(account_type="customer").count()
     total_employees = Users.query.filter_by(account_type="employee").count()
@@ -438,14 +446,13 @@ def admin_home():
     }
     return render_template("admin_home.html", stats=stats)
 
-
 @app.route("/admin/manage_staff")
 @login_required
 def admin_manage_staff():
     if current_user.account_type not in ["admin", "super_admin"]:
         if current_user.account_type == "employee":
-            return redirect(url_for("employee_home"))
-        return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+        return redirect(url_for("customer_dashboard", st=current_user.session_token))
 
     employees = Users.query.filter_by(account_type="employee").all()
     if current_user.account_type == "super_admin":
@@ -454,14 +461,13 @@ def admin_manage_staff():
         admins = []
     return render_template("admin_manage_staff.html", employees=employees, admins=admins)
 
-
 @app.route("/admin/manage_emergencies")
 @login_required
 def admin_manage_emergencies():
     if current_user.account_type not in ["admin", "super_admin"]:
         if current_user.account_type == "employee":
-            return redirect(url_for("employee_home"))
-        return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+        return redirect(url_for("customer_dashboard", st=current_user.session_token))
 
     all_ems = Emergencies.query.all()
     employees = Users.query.filter_by(account_type="employee").all()
@@ -489,16 +495,14 @@ def admin_manage_emergencies():
         employees=employees
     )
 
-
 @app.route("/admin/chat")
 @login_required
 def admin_chat():
     if current_user.account_type not in ["admin", "super_admin"]:
         if current_user.account_type == "employee":
-            return redirect(url_for("employee_home"))
-        return redirect(url_for("customer_dashboard"))
+            return redirect(url_for("employee_home", st=current_user.session_token))
+        return redirect(url_for("customer_dashboard", st=current_user.session_token))
     return render_template("admin_chat.html", username=current_user.username, account_type=current_user.account_type)
-
 
 ##############################
 #  SIGNUP, LOGIN, LOGOUT     #
@@ -537,7 +541,6 @@ def api_signup():
         db.session.rollback()
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
 
-
 @app.route("/api/login", methods=["POST"])
 @csrf.exempt
 def api_login():
@@ -556,7 +559,7 @@ def api_login():
             return jsonify({"success": False, "message": "Your account is locked. Please contact support."}), 403
 
         if bcrypt.check_password_hash(user.password_hash, password):
-            user.session_token = secrets.token_hex(32)
+            user.session_token = generate_unique_session_token()
             db.session.commit()
             login_user(user, remember=False)
             session['session_token'] = user.session_token
@@ -573,26 +576,20 @@ def api_login():
         app.logger.warning(f"Failed login attempt for non-existent email: {email}.")
         return jsonify({"success": False, "message": "Invalid email or password."}), 401
 
-
 @app.route("/api/logout", methods=["GET", "POST"])
 @csrf.exempt
 @login_required
 def logout():
-    # Invalidate session token and logout the user
     current_user.session_token = None
     db.session.commit()
     logout_user()
     session.clear()
 
-    # Check the request type (API or browser-based)
     if request.accept_mimetypes.best == "application/json":
-        # API client
         return jsonify({"success": True, "message": "Logged out successfully."}), 200
     else:
-        # Browser client
         flash("You have been logged out.", "info")
         return redirect(url_for("login_page"))
-
 
 ##############################
 #   FORGOT PASSWORD          #
@@ -631,7 +628,6 @@ def forgot_password():
 
     return render_template("forgot_password.html")
 
-
 @app.route("/reset_password", methods=["GET", "POST"])
 @csrf.exempt
 @login_required
@@ -663,7 +659,6 @@ def reset_password():
             return jsonify({"success": False, "message": f"DB error: {e}"}), 500
 
     return render_template("reset_password.html")
-
 
 ##############################
 #  OTP + ACCOUNT UPDATE      #
@@ -707,7 +702,6 @@ def request_otp_page():
 
     return render_template("request_otp_page.html")
 
-
 @app.route("/otp_verify", methods=["GET", "POST"])
 @csrf.exempt
 @login_required
@@ -735,15 +729,14 @@ def otp_verify():
 
     return render_template("otp_verify.html")
 
-
 @app.route("/account_update", methods=["GET", "POST"])
 @csrf.exempt
 @login_required
 def account_update():
     if not session.get("otp_verified"):
-        return redirect(url_for("request_otp_page"))
+        return redirect(url_for("request_otp_page", st=current_user.session_token))
     if current_user.account_type != "customer":
-        return redirect(url_for("admin_home"))
+        return redirect(url_for("admin_home", st=current_user.session_token))
 
     if request.method == "POST":
         data = request.get_json()
@@ -771,7 +764,6 @@ def account_update():
             return jsonify({"success": False, "message": "Database error."}), 500
 
     return render_template("account_update.html")
-
 
 ##############################
 #       REVIEWS ENDPOINT     #
@@ -825,7 +817,6 @@ def api_reviews():
         })
     return jsonify({"success": True, "reviews": data_list}), 200
 
-
 ##############################
 #       EMERGENCY ENDPOINT   #
 ##############################
@@ -869,7 +860,6 @@ def api_emergency():
         })
     return jsonify({"success": True, "emergencies": data_list}), 200
 
-
 ##############################
 #   CHAT MESSAGES ENDPOINT   #
 ##############################
@@ -904,7 +894,6 @@ def api_chat_messages():
             "timestamp": m.timestamp.strftime("%Y-%m-%d %H:%M:%S")
         })
     return jsonify({"success": True, "messages": data_list}), 200
-
 
 ##############################
 #   ADMIN: CREATE EMPLOYEE   #
@@ -946,7 +935,6 @@ def admin_create_employee():
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
-
 
 ##############################
 #   ADMIN: CREATE ADMIN      #
@@ -992,7 +980,6 @@ def admin_create_admin():
         app.logger.error(f"Error creating admin account: {e}")
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
 
-
 ##############################
 #   ADMIN: ASSIGN/UNASSIGN   #
 ##############################
@@ -1025,7 +1012,6 @@ def admin_assign_emergency():
     if emergency.assigned_employee_id is not None:
         return jsonify({"success": False, "message": "Already assigned."}), 400
 
-    # Update distress_notes to include assignment
     updated = update_assigned_employee_id(emergency.distress_notes, new_employee_id=employee_id)
     emergency.distress_notes = updated
     emergency.assigned_employee_id = employee_id
@@ -1061,7 +1047,6 @@ def admin_assign_emergency():
         app.logger.error(traceback.format_exc())
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
 
-
 @app.route("/api/admin/unassign_emergency", methods=["POST"])
 @csrf.exempt
 @login_required
@@ -1082,7 +1067,6 @@ def admin_unassign_emergency():
     if current_assignee is None:
         return jsonify({"success": False, "message": "No assigned employee."}), 400
 
-    # Update distress_notes to remove assignment
     updated = update_assigned_employee_id(emergency.distress_notes, new_employee_id=None)
     emergency.distress_notes = updated
     emergency.assigned_employee_id = None
@@ -1117,7 +1101,6 @@ def admin_unassign_emergency():
         app.logger.error(traceback.format_exc())
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
 
-
 ##############################
 #  ADMIN: DELETE EMPLOYEE    #
 ##############################
@@ -1138,11 +1121,9 @@ def admin_delete_employee():
     if not user_to_delete or user_to_delete.account_type not in ["employee", "admin"]:
         return jsonify({"success": False, "message": "User is not an employee/admin or does not exist."}), 400
 
-    # Block deletion if locked
     if user_to_delete.is_locked:
         return jsonify({"success": False, "message": "Cannot delete a locked account. Unlock first."}), 403
 
-    # Prevent super_admin from deleting themselves
     if user_to_delete.account_type == "super_admin" and user_to_delete.user_id == current_user.user_id:
         return jsonify({"success": False, "message": "Super Admin cannot delete themselves."}), 403
 
@@ -1164,7 +1145,6 @@ def admin_delete_employee():
         app.logger.error(f"Delete Employee/Admin Error: {e}")
         app.logger.error(traceback.format_exc())
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
-
 
 ##############################
 #   ADMIN: UPDATE STAFF      #
@@ -1188,27 +1168,20 @@ def admin_update_staff(staff_id):
     if not user or user.account_type not in ["employee", "admin"]:
         return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
 
-    # If user is locked, only super_admin can "unlock" them
     if user.is_locked:
         if current_user.account_type == "super_admin" and is_locked is False:
-            # They want to unlock
             user.is_locked = False
-            # Keep the rest of data updates minimal or disallowed
             db.session.commit()
             return jsonify({"success": True, "message": "Locked account unlocked by super_admin."}), 200
         else:
             return jsonify({"success": False, "message": "Cannot update locked account (unless super_admin unlocking)."}), 403
 
-    # Prevent super_admin from modifying themselves if they are super_admin
-
     if user.account_type == "super_admin" and user.user_id == current_user.user_id:
         return jsonify({"success": False, "message": "Super Admin cannot modify their own account."}), 403
 
-    # Normal updates if user is not locked
     if username:
         user.username = username
     if email:
-        # Check if the new email is already taken
         existing = Users.query.filter(Users.email == email, Users.user_id != staff_id).first()
         if existing:
             return jsonify({"success": False, "message": "Email already in use."}), 400
@@ -1218,13 +1191,9 @@ def admin_update_staff(staff_id):
     if phone_number:
         user.phone_number = phone_number
 
-    # If super_admin toggles lock => lock the user
     if is_locked is not None and current_user.account_type == "super_admin":
-        # If is_locked == True => lock the user
-        # If is_locked == False => means "unlock" but we handled that above if already locked
         if user.account_type == "super_admin":
             return jsonify({"success": False, "message": "Cannot lock/unlock another Super Admin."}), 403
-        # Lock them if is_locked==True
         if is_locked is True:
             user.is_locked = True
             user.session_token = None  # Invalidate session
@@ -1235,7 +1204,6 @@ def admin_update_staff(staff_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({"success": False, "message": f"DB error: {e}"}), 500
-
 
 ##############################
 #       DELETE ACCOUNT       #
@@ -1264,7 +1232,6 @@ def api_delete_account():
         return jsonify({"success": True, "message": "Account deleted successfully."}), 200
     except Exception as e:
         return jsonify({"success": False, "message": f"Database error: {e}"}), 500
-
 
 ##############################
 #      ADMIN SETUP ROUTE     #
@@ -1323,7 +1290,6 @@ def admin_setup():
 
     return render_template("admin_setup.html")
 
-
 ##############################
 #   SUPER ADMIN ROUTES       #
 ##############################
@@ -1371,7 +1337,6 @@ def elevate_super_admin_route():
         else:
             return jsonify({"success": False, "message": "Incorrect root password."}), 401
 
-
 @app.route("/api/admin/lock_account", methods=["POST"])
 @csrf.exempt
 @login_required
@@ -1388,29 +1353,21 @@ def admin_lock_account():
     if not user or user.account_type not in ["employee", "admin"]:
         return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
 
-    # Prevent super_admin from locking themselves
     if user.account_type == "super_admin" and user.user_id == current_user.user_id:
         return jsonify({"success": False, "message": "Super Admin cannot lock their own account."}), 403
 
     if user.is_locked:
         return jsonify({"success": False, "message": "Account is already locked."}), 400
 
-    # Lock the account + invalidate session
     user.is_locked = True
-    user.session_token = None  # Force logout if user is still active
+    user.session_token = None
 
     try:
-        # Gather all emergencies this user is assigned to
         assigned_emergencies = Emergencies.query.filter_by(assigned_employee_id=user.user_id).all()
-
-        # For each emergency, unassign + email the customers
         for em in assigned_emergencies:
             em.assigned_employee_id = None
-
-            # Email the customer to let them know the employee is no longer tracking
             customer_obj = Users.query.get(em.user_id)
             if customer_obj:
-                # Provide minimal info
                 send_assignment_email_to_customer(
                     customer=customer_obj,
                     emergency_id=em.emergency_id,
@@ -1419,10 +1376,7 @@ def admin_lock_account():
                     assigned=False
                 )
 
-        # Commit DB changes so unassignments take effect
         db.session.commit()
-
-        # Finally, send an HTML email to the employee about the lock
         send_employee_locked_email(user)
 
         return jsonify({
@@ -1436,7 +1390,6 @@ def admin_lock_account():
         db.session.rollback()
         app.logger.error(f"Database error during account lock: {str(e)}")
         return jsonify({"success": False, "message": "Server error. Please try again later."}), 500
-
 
 @app.route("/api/admin/unlock_account", methods=["POST"])
 @csrf.exempt
@@ -1461,8 +1414,6 @@ def admin_unlock_account():
 
     try:
         db.session.commit()
-
-        # Send unlock email
         try:
             html_content = render_template(
                 "emails/account_unlocked.html",
@@ -1470,7 +1421,7 @@ def admin_unlock_account():
                 current_year=datetime.utcnow().year
             )
             send_email(
-                to= user.email,
+                to=user.email,
                 subject="Your Account Has Been Unlocked",
                 body=html_content,
                 html=True
@@ -1485,52 +1436,9 @@ def admin_unlock_account():
         app.logger.error(f"Database error during account unlock: {str(e)}")
         return jsonify({"success": False, "message": "Server error. Please try again later."}), 500
 
-
 ##############################
 #   Helpers Functions        #
 ##############################
-
-def parse_assigned_employee_id(distress_text):
-    if not distress_text:
-        return None
-    start = distress_text.find("[ASSIGNED_EMPLOYEE=")
-    if start == -1:
-        return None
-    end = distress_text.find("]", start)
-    if end == -1:
-        return None
-    marker = distress_text[start:end + 1]
-    try:
-        eq_pos = marker.index("=")
-        num_str = marker[eq_pos + 1:-1]
-        return int(num_str)
-    except:
-        return None
-
-
-def update_assigned_employee_id(distress_text, new_employee_id=None):
-    if not distress_text:
-        distress_text = ""
-    start = distress_text.find("[ASSIGNED_EMPLOYEE=")
-    if start != -1:
-        end = distress_text.find("]", start)
-        if end != -1:
-            distress_text = distress_text[:start] + distress_text[end + 1:]
-    distress_text = distress_text.strip()
-
-    if new_employee_id is not None:
-        marker = f"[ASSIGNED_EMPLOYEE={new_employee_id}]"
-        if distress_text:
-            distress_text += "\n" + marker
-        else:
-            distress_text = marker
-    return distress_text.strip()
-
-
-def generate_secure_otp():
-    random_bytes = secrets.token_bytes(16)
-    return hashlib.sha256(random_bytes).hexdigest()[:6].upper()
-
 
 def send_verification_email(to_email, username, verification_code):
     subject = "Cave Country Canoes Account Verification Code"
@@ -1542,7 +1450,6 @@ Your verification code is {verification_code}.
 - Cave Country Canoes
 """
     send_email(to_email, subject, body, html=False)
-
 
 def send_assignment_email_to_employee(
         employee,
@@ -1600,7 +1507,79 @@ Customer Details:
 """
     send_email(employee.email, subject, body, html=False)
 
+##############################
+#   HELPER FUNCTIONS        #
+##############################
 
+def send_assignment_email_to_customer(
+        customer,
+        emergency_id=None,
+        location_details=None,
+        distress_notes=None,
+        employee_username=None,
+        employee_phone=None,
+        employee_email=None,
+        assigned=True
+    ):
+    if assigned:
+        subject = "Emergency Tracking Assignment"
+        app.logger.debug(f"Sending assignment email to customer {customer.username} with distress_notes: {distress_notes}")
+        html_content = render_template(
+            "emails/customer_assignment_email.html",
+            customer=customer,
+            emergency_id=emergency_id,
+            location_details=location_details,
+            distress_notes=distress_notes,
+            employee_username=employee_username,
+            employee_phone=employee_phone,
+            employee_email=employee_email
+        )
+        send_email(customer.email, subject, html_content, html=True)
+    else:
+        subject = "Emergency Tracking Termination Notice"
+        app.logger.debug(f"Sending termination email to customer {customer.username} with distress_notes: {distress_notes}")
+        body = f"""\
+Dear {customer.username},
+
+Your assigned employee has been unassigned by an admin.
+If you have any questions, please reach out via chat.
+
+- Cave Country Canoes
+"""
+        send_email(customer.email, subject, body, html=False)
+
+def send_assignment_email_to_employee(
+        employee,
+        customer,
+        emergency_id=None,
+        location_details=None,
+        distress_notes=None,
+        assigned=True
+    ):
+    if assigned:
+        subject = "New Emergency Assignment Notification"
+        app.logger.debug(f"Sending assignment email to employee {employee.username} with customer details.")
+        html_content = render_template(
+            "emails/employee_contact_details.html",
+            employee=employee,
+            customer=customer,
+            emergency_id=emergency_id,
+            location_details=location_details,
+            distress_notes=distress_notes,
+            current_year=datetime.utcnow().year
+        )
+        send_email(employee.email, subject, html_content, html=True)
+    else:
+        subject = "Emergency Tracking Termination Notification"
+        app.logger.debug(f"Sending termination email to employee {employee.username} for emergency ID {emergency_id}.")
+        body = f"""\
+Dear {employee.username},
+
+Your assignment to track Emergency Log ID {emergency_id} has been terminated by an admin.
+
+- Cave Country Canoes
+"""
+        send_email(employee.email, subject, body, html=False)
 def send_assignment_email_to_customer(
         customer,
         emergency_id=None,
@@ -1646,30 +1625,21 @@ If you have any questions, please reach out via chat.
 """
     send_email(customer.email, subject, body, html=False)
 
-
 def send_employee_locked_email(employee):
-    """
-    Sends an HTML email to the locked employee, letting them know
-    that their account has been locked and all emergencies unassigned.
-    """
     subject = "Your Account Has Been Locked"
     current_year = datetime.now().year
 
-    # Render the HTML template with context
     html_content = render_template(
         "emails/employee_locked.html",
         employee=employee,
         current_year=current_year
     )
-
-    # Now use existing send_email to send HTML content
     send_email(
         to=employee.email,
         subject=subject,
         body=html_content,
-        html=True  # Indicate this is HTML
+        html=True
     )
-
 
 def send_email(to, subject, body, html=False):
     msg = EmailMessage()
@@ -1690,22 +1660,23 @@ def send_email(to, subject, body, html=False):
         app.logger.error(f"Failed to send email to {to}: {e}")
         app.logger.error(traceback.format_exc())
 
-
 ##############################
-#  SESSION VALIDATION       #
+#  SESSION VALIDATION        #
 ##############################
 
-@app.before_request
+
 def validate_session_token():
+    """
+    Ensures that if a user is authenticated, the `st` URL parameter
+    matches their session_token. If not, they are logged out.
+    """
     if current_user.is_authenticated:
-        session_token = session.get('session_token')
-        if not session_token or current_user.session_token != session_token:
+        param_token = request.args.get('st')
+        if not param_token or param_token != current_user.session_token:
             logout_user()
             session.clear()
-            flash("Your session has been terminated. Please log in again.", "warning")
+            flash("Your session token is invalid or missing. Please log in again.", "warning")
             return redirect(url_for("login_page"))
-
-
 ##############################
 #   EMPLOYEE DASHBOARD ROUTES #
 ##############################
@@ -1764,9 +1735,39 @@ def claim_emergency():
             app.logger.info(f"Emergency ID {emergency_id} already claimed by user ID {emergency.assigned_employee_id}.")
             return jsonify({"success": False, "message": "Emergency already claimed."}), 400
 
+        # Assign the emergency to the current employee
         emergency.assigned_employee_id = current_user.user_id
         db.session.commit()
-        app.logger.info(f"Emergency ID {emergency_id} claimed by user {current_user.username}.")
+
+        # Fetch customer details
+        customer = Users.query.get(emergency.user_id)
+        if not customer:
+            app.logger.error(f"Customer with ID {emergency.user_id} not found.")
+            return jsonify({"success": False, "message": "Associated customer not found."}), 404
+
+        # Send email to the customer
+        send_assignment_email_to_customer(
+            customer=customer,
+            emergency_id=emergency.emergency_id,
+            location_details=emergency.location_details,
+            distress_notes=emergency.distress_notes,
+            employee_username=current_user.username,
+            employee_phone=current_user.phone_number,
+            employee_email=current_user.email,
+            assigned=True
+        )
+
+        # Send email to the employee with customer details
+        send_assignment_email_to_employee(
+            employee=current_user,
+            customer=customer,
+            emergency_id=emergency.emergency_id,
+            location_details=emergency.location_details,
+            distress_notes=emergency.distress_notes,
+            assigned=True
+        )
+
+        app.logger.info(f"Emergency ID {emergency_id} claimed by user {current_user.username} and emails sent.")
         return jsonify({"success": True, "message": "Emergency claimed successfully."}), 200
     except Exception as e:
         db.session.rollback()
@@ -1898,11 +1899,9 @@ def employee_logout():
 def employee_locked_email():
     return render_template("emails/employee_locked.html")
 
-
 @app.route("/emails/account_unlocked.html")
 def account_unlocked_email():
     return render_template("emails/account_unlocked.html")
-
 
 ##############################
 #       MAIN RUN             #
@@ -1910,4 +1909,4 @@ def account_unlocked_email():
 
 if __name__ == "__main__":
     ip = get_local_ip()
-    app.run(host=ip, port=5000, debug=True, threaded=True)
+    app.run(host=ip, debug=False, threaded=False)
