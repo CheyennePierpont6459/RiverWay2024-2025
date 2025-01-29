@@ -1,0 +1,23 @@
+﻿{% extends "customer_private.html" %}
+
+{% block content %}
+<h1>Submit Emergency Log</h1>
+<form id="emergencyForm">
+  <div>
+    <label>Location Details:</label><br>
+    <textarea id="locationField" required></textarea>
+  </div>
+  <div>
+    <label>Distress Notes:</label><br>
+    <textarea id="distressField" required></textarea>
+  </div>
+  <button type="submit">Submit Emergency</button>
+</form>
+
+<p><a href="{{ url_for('reviews_page') }}">Go to Reviews</a></p>
+<hr>
+<div id="emergencyResult"></div>
+
+<h2>My Emergency Logs</h2>
+<div id="emergencyList"></div>
+{% endblock %}

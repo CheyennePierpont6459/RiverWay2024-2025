@@ -1,0 +1,105 @@
+﻿<!-- templates/admin_manage_emergencies.html -->
+{% extends "admin_base.html" %}
+
+{% block content %}
+    <h2>Manage Emergencies</h2>
+
+    <!-- Emergencies Table -->
+    <table class="emergencies-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Customer Name</th>
+                <th>Phone Number</th>
+                <th>Location Details</th>
+                <th>Distress Notes</th>
+                <th>Assigned Employee</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for em in emergencies %}
+            <tr>
+                <td>{{ em.emergency_id }}</td>
+                <td>{{ em.customer_name }}</td>
+                <td>{{ em.customer_phone }}</td>
+                <td>{{ em.location_details }}</td>
+                <td>{{ em.distress_notes }}</td>
+                <td>
+                    {{ em.assigned_employee_name if em.assigned_employee_name else "Unassigned" }}
+                </td>
+                <td>
+                    {% if not em.assigned_employee_id %}
+                        <div class="assign-container">
+                            <select id="assign_employee_{{ em.emergency_id }}" class="assign-select">
+                                <option value="">-- Select Employee --</option>
+                                {% for emp in employees %}
+                                    {% if not emp.is_locked %}
+                                        <option value="{{ emp.user_id }}">{{ emp.username }}</option>
+                                    {% else %}
+                                        <option value="{{ emp.user_id }}" disabled>{{ emp.username }} (Locked)</option>
+                                    {% endif %}
+                                {% endfor %}
+                            </select>
+                            <button class="btn btn-assign" onclick="assignEmergency({{ em.emergency_id }})">Assign</button>
+                        </div>
+                    {% else %}
+                        <button class="btn btn-unassign" onclick="unassignEmergency({{ em.emergency_id }})">Unassign</button>
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Assign Emergency via API
+    async function assignEmergency(emergency_id) {
+        const select = document.getElementById('assign_employee_' + emergency_id);
+        const employee_id = select.value;
+        if (!employee_id) {
+            alert("Please select an employee to assign.");
+            return;
+        }
+
+        const response = await fetch('/api/admin/assign_emergency', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ emergency_id, employee_id })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    }
+
+    // Unassign Emergency via API
+    async function unassignEmergency(emergency_id) {
+        if (!confirm("Are you sure you want to unassign this emergency?")) return;
+
+        const response = await fetch('/api/admin/unassign_emergency', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ emergency_id })
+        });
+
+        const data = await response.json();
+        if (data.success) {
+            alert(data.message);
+            location.reload();
+        } else {
+            alert(data.message);
+        }
+    }
+</script>
+{% endblock %}
