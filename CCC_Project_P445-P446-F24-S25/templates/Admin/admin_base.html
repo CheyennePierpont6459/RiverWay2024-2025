@@ -1,0 +1,101 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>{% block title %}Admin Dashboard - Cave Country Canoes{% endblock %}</title>
+  <!-- CSRF: The CSRF token is included in the meta tag for AJAX calls -->
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <!-- XSS: All output is autoescaped by Jinja2 by default -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  <style>
+    /* Basic reset */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      padding-top: 60px; /* space for navbar */
+      padding-bottom: 50px; /* space for footer */
+    }
+    /* Top Navigation Bar */
+    nav {
+      background-color: #343a40;
+      color: #fff;
+      width: 100%;
+      position: fixed;
+      top: 0;
+      left: 0;
+      height: 60px;
+      display: flex;
+      align-items: center;
+      padding: 0 20px;
+      z-index: 1000;
+    }
+    nav h3 {
+      margin-right: 40px;
+    }
+    nav a {
+      color: #fff; /* XSS: static safe text */
+      margin-right: 20px;
+      text-decoration: none;
+      padding: 8px 12px;
+    }
+    nav a:hover {
+      background-color: #495057;
+      border-radius: 4px;
+    }
+    /* Main Content */
+    #content {
+      padding: 20px;
+      min-height: calc(100vh - 110px); /* adjust height accounting for navbar and footer */
+    }
+    /* Footer */
+    footer {
+      background-color: #000;
+      color: #fff;
+      text-align: center;
+      padding: 10px 20px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+    }
+  </style>
+  <script>
+    // CSRF: Expose CSRF token to JavaScript for AJAX calls.
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+    // SESSION_TOKEN for session-based operations (XSS-safe via autoescaping)
+    const SESSION_TOKEN = "{{ session_token }}";
+  </script>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <!-- Top Navigation Bar -->
+  <nav>
+    <h3>Admin Panel</h3>
+    <a href="{{ url_for('admin_home', st=session_token) }}">🏠 Home</a>
+    <a href="{{ url_for('admin_manage_staff', st=session_token) }}">👥 Manage Staff</a>
+    <a href="{{ url_for('admin_manage_emergencies', st=session_token) }}">🚨 Manage Emergencies</a>
+    <a href="{{ url_for('admin_chat', st=session_token) }}">💬 Chat</a>
+    <a href="{{ url_for('logout', st=session_token) }}">🚪 Logout</a>
+  </nav>
+
+  <!-- Main Content -->
+  <div id="content">
+    {% block content %}{% endblock %}
+  </div>
+
+  <footer>
+    <p>&copy; <span id="current-year"></span> Cave Country Canoes. All rights reserved.</p>
+  </footer>
+
+  <script>
+    // Set the current year (static safe)
+    document.getElementById("current-year").textContent = new Date().getFullYear();
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

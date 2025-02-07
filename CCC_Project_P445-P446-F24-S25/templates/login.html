@@ -5,11 +5,17 @@
   <meta charset="UTF-8">
   <title>Login</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <!-- Define CSRF_TOKEN for AJAX requests -->
+  <script>
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+  </script>
 </head>
 <body>
   <div class="form-container login-container">
     <h1>Login</h1>
     <form id="loginForm">
+      <!-- (Optionally, you can include a hidden CSRF token in the form as well) -->
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="form-group">
         <label for="emailField">Email:</label>
         <input type="email" id="emailField" name="email" placeholder="Enter your email" required>
@@ -44,14 +50,17 @@
       try {
         const response = await fetch('/api/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
           body: JSON.stringify({ email, password }),
         });
 
         const data = await response.json();
 
         if (data.success) {
-          resultDiv.innerText = data.message; // XSS-proof
+          resultDiv.innerText = data.message; // Safe output using innerText
           resultDiv.style.color = "green";
 
           // Redirect the user immediately based on account type
@@ -71,15 +80,15 @@
             window.location.href = redirectUrl;
           }, 1000);
         } else {
-          resultDiv.innerText = data.message; // XSS-proof
+          resultDiv.innerText = data.message; // Safe output using innerText
           resultDiv.style.color = "red";
         }
       } catch (error) {
-        resultDiv.innerText = `Error: ${error.message}`; // XSS-proof
+        resultDiv.innerText = `Error: ${error.message}`; // Safe output using innerText
         resultDiv.style.color = "red";
       }
     });
   });
-</script>
+  </script>
 </body>
 </html>

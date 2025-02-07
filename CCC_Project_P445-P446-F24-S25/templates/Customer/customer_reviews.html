@@ -1,0 +1,91 @@
+﻿<!-- templates/Customer/reviews.html -->
+{% extends "Customer/customer_base.html" %}
+
+{% block content %}
+<h1>Submit Review</h1>
+<form id="reviewForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div>
+    <label for="ratingHeader">Review Title:</label><br>
+    <input type="text" id="ratingHeader" required>
+  </div>
+  <div>
+    <label for="ratingNotes">Review Notes:</label><br>
+    <textarea id="ratingNotes" required></textarea>
+  </div>
+  <div>
+    <label for="ratingValue">Rating (1-5):</label><br>
+    <input type="number" id="ratingValue" min="1" max="5" required>
+  </div>
+  <button type="submit">Submit Review</button>
+</form>
+
+<p><a href="{{ url_for('submit_log_page', st=session_token) }}">Go to Emergency Logs</a></p>
+<hr>
+<div id="reviewResult"></div>
+
+<h2>My Reviews</h2>
+<div id="reviewList"></div>
+
+<script>
+  // Handle review submission with CSRF header
+  document.getElementById('reviewForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ratingHeader = document.getElementById('ratingHeader').value.trim();
+    const ratingNotes = document.getElementById('ratingNotes').value.trim();
+    const ratingValue = document.getElementById('ratingValue').value.trim();
+
+    try {
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': CSRF_TOKEN
+        },
+        body: JSON.stringify({ rating_header: ratingHeader, rating_notes: ratingNotes, rating_value: ratingValue })
+      });
+      const result = await response.json();
+      const resultDiv = document.getElementById('reviewResult');
+      if (result.success) {
+        resultDiv.innerHTML = `<p class="text-success">${result.message}</p>`;
+        loadReviews();
+      } else {
+        resultDiv.innerHTML = `<p class="text-danger">${result.message}</p>`;
+      }
+    } catch (error) {
+      document.getElementById('reviewResult').innerHTML = `<p class="text-danger">Error: ${error.message}</p>`;
+    }
+  });
+
+  async function loadReviews() {
+    try {
+      const response = await fetch(`/api/reviews?st={{ session_token }}`, {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-CSRFToken': CSRF_TOKEN
+  },
+  body: JSON.stringify({ rating_header: ratingHeader, rating_notes: ratingNotes, rating_value: ratingValue })
+});
+
+      const data = await response.json();
+      if (data.success) {
+        const reviewList = document.getElementById('reviewList');
+        reviewList.innerHTML = data.reviews
+          .map(review =>
+            `<div class="review">
+              <h3>${review.rating_header}</h3>
+              <p>${review.rating_notes}</p>
+              <p>Rating: ${review.rating_value} | Date: ${review.created_at}</p>
+            </div>`
+          )
+          .join('');
+      }
+    } catch (error) {
+      console.error("Error loading reviews:", error);
+    }
+  }
+
+  loadReviews();
+</script>
+{% endblock %}

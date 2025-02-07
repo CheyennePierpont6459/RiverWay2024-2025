@@ -1,0 +1,79 @@
+﻿{% extends "Admin/admin_base.html" %}
+{% block title %}Admin Home - Cave Country Canoes{% endblock %}
+{% block content %}
+  <h2>Welcome, {{ current_user.username }}!</h2>
+  <!-- Dashboard statistics are rendered safely (XSS autoescaping) -->
+  <div class="dashboard-stats">
+    <h3>Dashboard Statistics</h3>
+    <ul>
+      <li>Total Customers: {{ stats.total_customers }}</li>
+      <li>Total Employees: {{ stats.total_employees }}</li>
+      <li>Total Emergencies: {{ stats.total_emergencies }}</li>
+      <li>Unresolved Emergencies: {{ stats.unresolved_emergencies }}</li>
+    </ul>
+  </div>
+  {% if current_user.account_type == "admin" %}
+    <button id="btnElevate" class="btn elevate">Elevate Privileges</button>
+  {% elif current_user.account_type == "super_admin" %}
+    <p class="status success">You are currently a SUPER ADMIN!</p>
+  {% endif %}
+  <!-- Modal for elevating privileges (CSRF protection: AJAX calls use CSRF token) -->
+  <div id="elevateModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>Enter Root Password</h3>
+      <input type="password" id="elevateRootPwd" placeholder="Root password">
+      <button id="btnSubmitElevate" class="btn">Submit</button>
+      <button id="btnCloseElevate" class="btn btn-close">Close</button>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // CSRF: AJAX calls use the CSRF_TOKEN variable
+  document.addEventListener('DOMContentLoaded', function() {
+    const btnElevate = document.getElementById('btnElevate');
+    const elevateModal = document.getElementById('elevateModal');
+    const btnCloseElevate = document.getElementById('btnCloseElevate');
+    const btnSubmitElevate = document.getElementById('btnSubmitElevate');
+    const elevateRootPwd = document.getElementById('elevateRootPwd');
+
+    if (btnElevate) {
+      btnElevate.addEventListener('click', () => {
+        elevateModal.style.display = 'block';
+        elevateRootPwd.value = '';
+      });
+    }
+    if (btnCloseElevate) {
+      btnCloseElevate.addEventListener('click', () => {
+        elevateModal.style.display = 'none';
+      });
+    }
+    if (btnSubmitElevate) {
+      btnSubmitElevate.addEventListener('click', () => {
+        const rootPwd = elevateRootPwd.value.trim();
+        fetch("{{ url_for('elevate_super_admin_route') }}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": CSRF_TOKEN  // CSRF protection
+          },
+          body: JSON.stringify({ root_password: rootPwd })
+        })
+        .then(res => res.json().then(data => ({status: res.status, body: data})))
+        .then(({ status, body }) => {
+          alert(body.message); // XSS: alert displays plain text messages
+          if (status === 200 && body.success) {
+            window.location.reload();
+          } else if (status === 403) {
+            elevateModal.style.display = 'none';
+          }
+        })
+        .catch(err => {
+          console.error("Elevate privileges error:", err);
+          alert("An error occurred while elevating privileges.");
+        });
+      });
+    }
+  });
+</script>
+{% endblock %}

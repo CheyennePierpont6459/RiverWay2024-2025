@@ -1,0 +1,67 @@
+﻿{% extends "Employee/employee_base.html" %}
+{% block title %}Employee Chat{% endblock %}
+{% block content %}
+  <div id="chat-container" class="container">
+    <div id="chat-box" class="border rounded p-3 mb-3" style="height: 400px; overflow-y: scroll;">
+      <ul id="messages" class="list-unstyled"></ul>
+    </div>
+    <form id="chat-form" class="d-flex">
+      <input type="text" id="chat-input" class="form-control me-2" placeholder="Type a message..." required>
+      <button type="submit" class="btn btn-primary">Send</button>
+    </form>
+  </div>
+{% endblock %}
+{% block scripts %}
+<script>
+  const chatMessages = document.getElementById('messages');
+  const chatForm = document.getElementById('chat-form');
+  const chatInput = document.getElementById('chat-input');
+
+  async function fetchMessages() {
+    try {
+      const response = await fetch('/api/chat/messages');
+      const data = await response.json();
+      if (data.success) {
+        // XSS: output is assumed safe due to autoescaping in templates
+        chatMessages.innerHTML = data.messages.map(msg =>
+          `<li>
+            <strong>${msg.username}:</strong> ${msg.message}
+            <span class="timestamp">${msg.timestamp}</span>
+          </li>`).join('');
+      } else {
+        console.error('Error fetching messages:', data.message);
+      }
+    } catch (error) {
+      console.error('Error fetching messages:', error);
+    }
+  }
+
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const message = chatInput.value.trim();
+    if (!message) return;
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': CSRF_TOKEN  // CSRF protection for AJAX
+        },
+        body: JSON.stringify({ message })
+      });
+      const data = await response.json();
+      if (data.success) {
+        chatInput.value = '';
+        fetchMessages();
+      } else {
+        console.error('Error sending message:', data.message);
+      }
+    } catch (error) {
+      console.error('Error sending message:', error);
+    }
+  });
+
+  setInterval(fetchMessages, 3000);
+  fetchMessages();
+</script>
+{% endblock %}

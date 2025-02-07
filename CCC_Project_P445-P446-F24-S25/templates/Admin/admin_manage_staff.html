@@ -1,0 +1,119 @@
+﻿{% extends "Admin/admin_base.html" %}
+{% block title %}Manage Staff - Cave Country Canoes{% endblock %}
+{% block content %}
+  <h2>Manage Staff</h2>
+  <!-- Admin staff management actions with CSRF-protected AJAX calls -->
+  <div class="staff-actions">
+    <button class="btn" onclick="showCreateEmployeeForm()">Create New Employee</button>
+    {% if current_user.account_type == "super_admin" %}
+      <button class="btn" onclick="showCreateAdminForm()">Create New Admin</button>
+    {% else %}
+      <button class="btn disabled" onclick="alert('Root permission required to create an admin.')">Create New Admin</button>
+    {% endif %}
+  </div>
+  <div id="alerts"></div>
+  <table class="staff-table">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Phone Number</th>
+        <th>Account Type</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for employee in employees %}
+      <tr>
+        <td>{{ employee.user_id }}</td>
+        <td>{{ employee.username }}</td> <!-- XSS: autoescaped -->
+        <td>{{ employee.email }}</td>    <!-- XSS: autoescaped -->
+        <td>{{ employee.phone_number }}</td>
+        <td>{{ employee.account_type }}</td>
+        <td>
+          {% if employee.is_locked %}
+            <span class="status locked">Locked</span>
+          {% else %}
+            <span class="status active">Active</span>
+          {% endif %}
+        </td>
+        <td>
+          <button class="btn" onclick="updateStaff({{ employee.user_id }}, '{{ employee.account_type }}', {{ employee.is_locked|tojson }})">Update</button>
+          <button class="btn" onclick="deleteStaff({{ employee.user_id }}, {{ employee.is_locked|tojson }})">Delete</button>
+          {% if current_user.account_type == "super_admin" and employee.account_type != "super_admin" and employee.user_id != current_user.user_id %}
+            {% if not employee.is_locked %}
+              <button class="btn" onclick="toggleLock({{ employee.user_id }}, true)">Lock</button>
+            {% else %}
+              <button class="btn" onclick="toggleLock({{ employee.user_id }}, false)">Unlock</button>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      {% for admin in admins %}
+      <tr>
+        <td>{{ admin.user_id }}</td>
+        <td>{{ admin.username }}</td>
+        <td>{{ admin.email }}</td>
+        <td>{{ admin.phone_number }}</td>
+        <td>{{ admin.account_type }}</td>
+        <td>
+          {% if admin.is_locked %}
+            <span class="status locked">Locked</span>
+          {% else %}
+            <span class="status active">Active</span>
+          {% endif %}
+        </td>
+        <td>
+          <button class="btn" onclick="updateStaff({{ admin.user_id }}, '{{ admin.account_type }}', {{ admin.is_locked|tojson }})">Update</button>
+          <button class="btn" onclick="deleteStaff({{ admin.user_id }}, {{ admin.is_locked|tojson }})">Delete</button>
+          {% if current_user.account_type == "super_admin" and admin.account_type != "super_admin" and admin.user_id != current_user.user_id %}
+            {% if not admin.is_locked %}
+              <button class="btn" onclick="toggleLock({{ admin.user_id }}, true)">Lock</button>
+            {% else %}
+              <button class="btn" onclick="toggleLock({{ admin.user_id }}, false)">Unlock</button>
+            {% endif %}
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <!-- Forms for creating/updating staff; CSRF protection to be included in AJAX calls -->
+  <div id="createEmployeeForm" class="form-popup" style="display:none;">
+    <h3>Create New Employee</h3>
+    <input type="text" id="new_username" placeholder="Username">
+    <input type="email" id="new_email" placeholder="Email">
+    <input type="password" id="new_password" placeholder="Password">
+    <input type="text" id="new_phone_number" placeholder="Phone Number">
+    <button class="btn" onclick="createEmployee()">Submit</button>
+    <button class="btn btn-close" onclick="hideCreateEmployeeForm()">Cancel</button>
+  </div>
+  <div id="createAdminForm" class="form-popup" style="display:none;">
+    <h3>Create New Admin</h3>
+    <input type="text" id="admin_username" placeholder="Username">
+    <input type="email" id="admin_email" placeholder="Email">
+    <input type="password" id="admin_password" placeholder="Password">
+    <input type="text" id="admin_phone_number" placeholder="Phone Number">
+    <button class="btn" onclick="createAdmin()">Submit</button>
+    <button class="btn btn-close" onclick="hideCreateAdminForm()">Cancel</button>
+  </div>
+  <div id="updateStaffForm" class="form-popup" style="display:none;">
+    <h3>Update Staff</h3>
+    <input type="text" id="update_username" placeholder="Username">
+    <input type="email" id="update_email" placeholder="Email">
+    <input type="password" id="update_password" placeholder="New Password (leave blank to keep current)">
+    <input type="text" id="update_phone_number" placeholder="Phone Number">
+    {% if current_user.account_type == "super_admin" %}
+      <label><input type="checkbox" id="update_is_locked"> Lock Account</label>
+    {% endif %}
+    <button class="btn" onclick="submitUpdateStaff()">Update</button>
+    <button class="btn btn-close" onclick="hideUpdateStaffForm()">Cancel</button>
+  </div>
+{% endblock %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='admin_staff.js') }}"></script>
+{% endblock %}
