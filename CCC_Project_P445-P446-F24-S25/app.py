@@ -1907,6 +1907,10 @@ def account_unlocked_email():
 #       MAIN RUN             #
 ##############################
 
+#if __name__ == "__main__":
+    #ip = get_local_ip()
+    #app.run(host=ip, debug=False, threaded=False)
+
 if __name__ == "__main__":
     ip = get_local_ip()
-    app.run(host=ip, debug=False, threaded=False)
+    app.run(host='192.168.1.234', debug=False, threaded=False)
