@@ -1,0 +1,85 @@
+﻿{% extends "Employee/employee_base.html" %}
+
+{% block title %}My Claimed Emergencies{% endblock %}
+
+{% block content %}
+<h1>My Claimed Emergencies</h1>
+{% if emergencies %}
+<ul id="emergency-list">
+    {% for emergency in emergencies %}
+    <li id="emergency-{{ emergency.emergency_id }}">
+        <strong>Emergency ID:</strong> {{ emergency.emergency_id }}<br>
+        <strong>Location:</strong> {{ emergency.location_details }}<br>
+        <strong>Notes:</strong> {{ emergency.distress_notes }}<br>
+        <strong>Customer:</strong> {{ emergency.customer.username }}<br>  <!-- Fixed customer display -->
+        <button class="resolve-button" data-id="{{ emergency.emergency_id }}">Resolve</button>
+    </li>
+    {% endfor %}
+</ul>
+{% else %}
+<p>You have no claimed emergencies at the moment.</p>
+{% endif %}
+
+<script>
+    // Get CSRF token from meta tag
+    const CSRF_TOKEN = document.querySelector('meta[name="csrf-token"]').content;
+
+    document.addEventListener('DOMContentLoaded', () => {
+        document.querySelectorAll('.resolve-button').forEach(button => {
+            button.addEventListener('click', async (event) => {
+                const emergencyId = event.target.dataset.id;
+                if (!confirm(`Are you sure you want to resolve Emergency #${emergencyId}?`)) return;
+
+                try {
+                    const response = await fetch('/employee/resolve_emergency', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': CSRF_TOKEN
+                        },
+                        body: JSON.stringify({ emergency_id: emergencyId })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        // Remove emergency from list
+                        document.getElementById(`emergency-${emergencyId}`)?.remove();
+                        // Show success notification
+                        showNotification('Emergency resolved successfully!', 'success');
+                    } else {
+                        showNotification(result.message || 'Failed to resolve emergency', 'error');
+                    }
+                } catch (error) {
+                    console.error('Resolution error:', error);
+                    showNotification('An error occurred. Please try again.', 'error');
+                }
+            });
+        });
+    });
+
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = `notification ${type}`;
+        notification.textContent = message;
+        document.body.appendChild(notification);
+
+        setTimeout(() => notification.remove(), 3000);
+    }
+</script>
+
+<style>
+    .notification {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px;
+        border-radius: 5px;
+        color: white;
+        z-index: 1000;
+    }
+    .success { background-color: #4CAF50; }
+    .error { background-color: #f44336; }
+    .info { background-color: #2196F3; }
+</style>
+{% endblock %}

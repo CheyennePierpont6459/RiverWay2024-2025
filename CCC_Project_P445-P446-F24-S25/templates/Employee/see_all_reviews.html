@@ -1,0 +1,31 @@
+﻿{% extends "Employee/employee_base.html" %}
+
+{% block title %}Customer Reviews{% endblock %}
+
+{% block content %}
+<h1>All Customer Reviews</h1>
+{% if reviews %}
+<table>
+    <thead>
+        <tr>
+            <th>Customer</th>
+            <th>Header</th>
+            <th>Notes</th>
+            <th>Rating</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for review in reviews %}
+        <tr>
+            <td>{{ review.username }}</td>
+            <td>{{ review.rating_header }}</td>
+            <td>{{ review.rating_notes }}</td>
+            <td>{{ review.rating_value }}/5</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% else %}
+<p>No reviews found.</p>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,28 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>{{ subject }}</title>
+</head>
+<body>
+    <p>Dear {{ employee.username }},</p>
+
+    <p>An admin ({{ admin_user.username if admin_user else 'N/A' }}) has terminated your tracking of the following customer's emergency.</p>
+
+    <h3>Emergency Details:</h3>
+    <ul>
+        <li><strong>Emergency Log ID:</strong> {{ emergency_id or 'N/A' }}</li>
+        <li><strong>Location Details:</strong> {{ location_details or 'N/A' }}</li>
+        <li><strong>Distress Notes:</strong> {{ distress_notes or 'N/A' }}</li>
+    </ul>
+
+    <h3>Customer Details:</h3>
+    <ul>
+        <li><strong>Name:</strong> {{ customer.username }}</li>
+        <li><strong>Phone:</strong> {{ customer.phone_number }}</li>
+        <li><strong>Email:</strong> {{ customer.email }}</li>
+    </ul>
+
+    <p>Best regards,<br>Cave Country Canoes</p>
+</body>
+</html>
