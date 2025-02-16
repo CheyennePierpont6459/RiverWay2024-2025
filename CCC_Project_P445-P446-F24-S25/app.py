@@ -127,7 +127,6 @@ def generate_secure_otp():
     random_bytes = secrets.token_bytes(16)
     return hashlib.sha256(random_bytes).hexdigest()[:6].upper()
 
-
 def get_local_ip():
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
@@ -155,6 +154,7 @@ def generate_unique_session_token():
 @login_manager.user_loader
 def load_user(user_id):
     return db.session.get(Users, int(user_id))
+
 class Users(db.Model, UserMixin):
     __tablename__ = "users"
     user_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -166,7 +166,7 @@ class Users(db.Model, UserMixin):
     is_locked = db.Column(db.Boolean, nullable=False, default=False)
     session_token = db.Column(db.String(64), nullable=True, unique=True)
     created_at = db.Column(db.DateTime, default=datetime.now())
-    email_verified = db.Column(db.Boolean, default=False, nullable=False)  # NEW FIELD
+    email_verified = db.Column(db.Boolean, default=False, nullable=False)
 
     @property
     def id(self):
@@ -186,7 +186,6 @@ class Users(db.Model, UserMixin):
     def verify_password(self, password):
         return bcrypt.check_password_hash(self.password_hash, password)
 
-# New model to store email verification tokens
 class EmailVerification(db.Model):
     __tablename__ = "email_verifications"
     id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -195,6 +194,7 @@ class EmailVerification(db.Model):
     expiration = db.Column(db.DateTime, nullable=False)
 
     user = db.relationship("Users")
+
 class PendingUser(db.Model):
     __tablename__ = "pending_users"
     pending_id = db.Column(db.Integer, primary_key=True, autoincrement=True)
@@ -206,7 +206,6 @@ class PendingUser(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.now())
     token = db.Column(db.String(128), nullable=False, unique=True)
     token_expiration = db.Column(db.DateTime, nullable=False)
-
 
 class Ratings(db.Model):
     __tablename__ = "ratings"
@@ -330,12 +329,10 @@ def signup_page():
         password = request.form.get("password")
         phone_number = request.form.get("phone_number", "").strip()
 
-        # Validate required fields
         if not username or not email or not password or not phone_number:
             flash("All fields are required.", "danger")
             return render_template("Customer/signup.html")
 
-        # Check if username or email already exists in Users or PendingUser
         if Users.query.filter_by(username=username).first() or PendingUser.query.filter_by(username=username).first():
             flash("Username already exists!", "danger")
             return render_template("Customer/signup.html")
@@ -343,14 +340,10 @@ def signup_page():
             flash("Email already registered.", "danger")
             return render_template("Customer/signup.html")
 
-        # Hash the password
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
-
-        # Generate a secure verification token and set expiration (24 hours)
         token = secrets.token_urlsafe(32)
         expiration = datetime.now() + timedelta(hours=24)
 
-        # Create a new pending user record
         new_pending = PendingUser(
             username=username,
             email=email,
@@ -364,10 +357,8 @@ def signup_page():
             db.session.add(new_pending)
             db.session.commit()
 
-            # Build the verification link (make sure _external=True so the URL is absolute)
             verification_link = url_for("verify_email", token=token, _external=True)
 
-            # Render the email template with the verification link
             html_content = render_template(
                 "emails/new_customer_credentials.html",
                 username=username,
@@ -375,7 +366,6 @@ def signup_page():
                 verification_link=verification_link
             )
 
-            # Send the verification email
             send_email(email, "Verify Your Email", html_content, html=True)
             flash("Account created successfully! Please check your email to verify your account.", "success")
             return redirect(url_for("login_page"))
@@ -384,7 +374,6 @@ def signup_page():
             flash(f"Database error: {e}", "danger")
             return render_template("Customer/signup.html")
     return render_template("Customer/signup.html")
-
 
 @app.route("/customer_dashboard")
 @login_required
@@ -513,6 +502,7 @@ def admin_chat():
 ##############################
 #  SIGNUP, LOGIN, LOGOUT     #
 ##############################
+
 @app.route("/api/signup", methods=["POST"])
 def api_signup():
     data = request.get_json()
@@ -521,25 +511,20 @@ def api_signup():
     password = data.get("password")
     phone_number = data.get("phone_number")
 
-    # Validate required fields.
     if not username or not email or not password or not phone_number:
         return jsonify({"success": False, "message": "All fields are required."}), 400
 
-    # Check for duplicate username or email in both active users and pending users.
     if Users.query.filter_by(username=username).first() or PendingUser.query.filter_by(username=username).first():
         return jsonify({"success": False, "message": "Username already exists!"}), 400
     if Users.query.filter_by(email=email).first() or PendingUser.query.filter_by(email=email).first():
         return jsonify({"success": False, "message": "Email already registered."}), 400
 
-    # Hash the password.
     hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
 
     try:
-        # Generate a secure verification token
         token = secrets.token_urlsafe(32)
-        expiration = datetime.now() + timedelta(hours=24)  # Token valid for 24 hours
+        expiration = datetime.now() + timedelta(hours=24)
 
-        # Create a pending user record
         pending = PendingUser(
             username=username,
             email=email,
@@ -552,10 +537,8 @@ def api_signup():
         db.session.add(pending)
         db.session.commit()
 
-        # Build the verification link (make sure your URL settings are correct)
         verification_link = url_for("verify_email", token=token, _external=True)
 
-        # Render the HTML email template (it should include the verification_link)
         html_content = render_template(
             "emails/new_customer_credentials.html",
             username=username,
@@ -563,7 +546,6 @@ def api_signup():
             verification_link=verification_link
         )
 
-        # Send the verification email
         send_email(email, "Verify Your Email", html_content, html=True)
         app.logger.info(f"Verification email sent to {email}.")
 
@@ -591,17 +573,15 @@ def verify_email(token):
         return redirect(url_for("signup_page"))
 
     try:
-        # Create a new user record from pending user details
         new_user = Users(
             username=pending.username,
             email=pending.email,
             password_hash=pending.password_hash,
             phone_number=pending.phone_number,
             account_type=pending.account_type,
-            email_verified=True  # Now verified
+            email_verified=True
         )
         db.session.add(new_user)
-        # Remove the pending user record.
         db.session.delete(pending)
         db.session.commit()
         flash("Your email has been verified. You can now log in.", "success")
@@ -638,15 +618,13 @@ def api_login():
         app.logger.warning(f"Failed login attempt for non-existent email: {email}.")
         return jsonify({"success": False, "message": "Invalid email or password."}), 401
 
-
 @app.route("/api/logout", methods=["GET", "POST"])
 @login_required
 def logout():
-    # If the user is a super admin, demote them to a regular admin before logout.
     if current_user.account_type == "super_admin":
         current_user.account_type = "admin"
     current_user.session_token = None
-    db.session.commit()  # Commit demotion and token clearance
+    db.session.commit()
     logout_user()
     session.clear()
     if request.accept_mimetypes.best == "application/json":
@@ -712,14 +690,12 @@ def reset_password():
             return jsonify({"success": False, "message": f"DB error: {e}"}), 500
     return render_template("Customer/reset_password.html")
 
-
 ##############################
 #    REQUEST OTP ROUTE       #
 ##############################
 @app.route("/request_otp", methods=["GET", "POST"])
 @login_required
 def request_otp():
-    # Only customers may request an OTP.
     if current_user.account_type != "customer":
         app.logger.error("HTTP 403: Forbidden access to /request_otp by user %s (%s)",
                          current_user.username, current_user.account_type)
@@ -736,29 +712,24 @@ def request_otp():
             return redirect(url_for("login_page"))
 
     if request.method == "POST":
-        # Accept data from JSON or form (if needed)
         data = request.get_json() or request.form
         email = data.get("email", "").strip()
         if not email:
             return jsonify({"success": False, "message": "Email is required."}), 400
-        # Ensure the provided email matches the customer's email
         if email.lower() != current_user.email.lower():
             return jsonify({"success": False, "message": "Provided email does not match your account email."}), 403
         try:
-            # Delete any existing OTPs for this user
             MFA.query.filter_by(user_id=current_user.user_id).delete()
             db.session.commit()
         except Exception as e:
             db.session.rollback()
             app.logger.error("Error deleting existing OTPs for user %s: %s", current_user.user_id, e)
-        # Generate a new OTP and store it
         otp = generate_secure_otp()
         expiration = datetime.now() + timedelta(minutes=10)
         new_mfa = MFA(user_id=current_user.user_id, code=otp, expiration=expiration)
         db.session.add(new_mfa)
         try:
             db.session.commit()
-            # Call the send_verification_email function to send the OTP
             send_verification_email(current_user.email, current_user.username, otp)
             return jsonify({"success": True, "message": "OTP sent to your email."}), 200
         except Exception as e:
@@ -766,9 +737,7 @@ def request_otp():
             app.logger.error("Error sending OTP to user %s: %s", current_user.user_id, e)
             return jsonify({"success": False, "message": "Error sending OTP. Please try again later."}), 500
 
-    # GET request – render the OTP request page.
     return render_template("Customer/request_otp.html")
-
 
 ##############################
 #    OTP VERIFY ROUTE        #
@@ -776,7 +745,6 @@ def request_otp():
 @app.route("/otp_verify", methods=["GET", "POST"])
 @login_required
 def otp_verify():
-    # Only customers may verify OTP.
     if current_user.account_type != "customer":
         app.logger.error("HTTP 403: Forbidden access to /otp_verify by user %s (%s)",
                          current_user.username, current_user.account_type)
@@ -810,9 +778,7 @@ def otp_verify():
             app.logger.error("Error removing OTP for user %s: %s", current_user.user_id, e)
             return jsonify({"success": False, "message": "Database error while verifying OTP."}), 500
 
-    # GET request – render the OTP verification page.
     return render_template("Customer/otp_verify.html")
-
 
 ##############################
 #    ACCOUNT UPDATE ROUTE    #
@@ -820,7 +786,6 @@ def otp_verify():
 @app.route("/account_update", methods=["GET", "POST"])
 @login_required
 def account_update():
-    # Only customers may update account information.
     if current_user.account_type != "customer":
         app.logger.error("HTTP 403: Forbidden access to /account_update by user %s (%s)",
                          current_user.username, current_user.account_type)
@@ -836,7 +801,6 @@ def account_update():
             flash("Forbidden: This resource is only for customers.", "danger")
             return redirect(url_for("login_page"))
 
-    # Ensure that the OTP has been verified.
     if not session.get("otp_verified"):
         flash("You must verify your OTP before updating your account.", "warning")
         return redirect(url_for("otp_verify", st=current_user.session_token))
@@ -846,11 +810,9 @@ def account_update():
         new_email = data.get("new_email", "").strip()
         new_password = data.get("new_password", "").strip()
         new_phone = data.get("new_phone", "").strip()
-        # If no changes were provided, simply redirect the user to their dashboard.
         if not new_email and not new_password and not new_phone:
             return jsonify({"success": True, "message": "No changes made. Redirecting to dashboard."}), 200
         if new_email:
-            # Check for duplicates in other customer accounts.
             if Users.query.filter(Users.email == new_email, Users.user_id != current_user.user_id).first():
                 return jsonify({"success": False, "message": "Email already in use."}), 400
             current_user.email = new_email
@@ -860,7 +822,6 @@ def account_update():
             current_user.phone_number = new_phone
         try:
             db.session.commit()
-            # Clear the OTP verification flag after a successful update.
             session.pop("otp_verified", None)
             return jsonify({"success": True, "message": "Account updated successfully!"}), 200
         except Exception as e:
@@ -868,13 +829,11 @@ def account_update():
             app.logger.error("Database error during account update for user %s: %s", current_user.user_id, e)
             return jsonify({"success": False, "message": "Database error."}), 500
 
-    # GET request – render the account update page.
     return render_template("Customer/account_update.html")
 
 ##############################
 #       REVIEWS ENDPOINT     #
 ##############################
-
 @app.route("/api/reviews", methods=["GET", "POST"])
 @login_required
 def api_reviews():
@@ -921,12 +880,10 @@ def api_reviews():
 @app.route("/api/emergency", methods=["GET", "POST"])
 @login_required
 def api_emergency():
-    # Only customers can use this endpoint.
     if current_user.account_type != "customer":
         return jsonify({"success": False, "message": "Unauthorized."}), 403
 
     if request.method == "POST":
-        # Use silent=True so that invalid JSON does not throw an exception.
         data = request.get_json(silent=True)
         if not data:
             return jsonify({"success": False, "message": "Invalid JSON payload."}), 400
@@ -949,7 +906,7 @@ def api_emergency():
             db.session.rollback()
             return jsonify({"success": False, "message": f"DB error: {e}"}), 500
 
-    else:  # GET request
+    else:
         my_ems = Emergencies.query.filter_by(user_id=current_user.user_id).all()
         data_list = [{
             "emergency_id": em.emergency_id,
@@ -960,13 +917,9 @@ def api_emergency():
         } for em in my_ems]
         return jsonify({"success": True, "emergencies": data_list}), 200
 
-
-
-
 ##############################
 #   CHAT MESSAGES ENDPOINT   #
 ##############################
-
 @app.route("/api/chat/messages", methods=["GET", "POST"])
 @login_required
 def api_chat_messages():
@@ -994,7 +947,6 @@ def api_chat_messages():
 ##############################
 #   ADMIN: CREATE EMPLOYEE   #
 ##############################
-
 @app.route("/api/admin/create_employee", methods=["POST"])
 @login_required
 def admin_create_employee():
@@ -1030,7 +982,6 @@ def admin_create_employee():
 ##############################
 #   ADMIN: CREATE ADMIN      #
 ##############################
-
 @app.route("/api/admin/create_admin", methods=["POST"])
 @login_required
 def admin_create_admin():
@@ -1069,7 +1020,6 @@ def admin_create_admin():
 ##############################
 #   ADMIN: ASSIGN/UNASSIGN   #
 ##############################
-
 @app.route("/api/admin/assign_emergency", methods=["POST"])
 @login_required
 def admin_assign_emergency():
@@ -1173,7 +1123,6 @@ def admin_unassign_emergency():
 ##############################
 #  ADMIN: DELETE EMPLOYEE    #
 ##############################
-
 @app.route("/api/admin/delete_employee", methods=["POST"])
 @login_required
 def admin_delete_employee():
@@ -1211,7 +1160,6 @@ def admin_delete_employee():
 ##############################
 #   ADMIN: UPDATE STAFF      #
 ##############################
-
 @app.route("/api/admin/update_staff/<int:staff_id>", methods=["POST"])
 @login_required
 def admin_update_staff(staff_id):
@@ -1222,7 +1170,7 @@ def admin_update_staff(staff_id):
     email = data.get("email")
     password = data.get("password")
     phone_number = data.get("phone_number")
-    is_locked = data.get("is_locked")  # Boolean
+    is_locked = data.get("is_locked")
     user = Users.query.get(staff_id)
     if not user or user.account_type not in ["employee", "admin"]:
         return jsonify({"success": False, "message": "User not found or not an employee/admin."}), 404
@@ -1262,7 +1210,6 @@ def admin_update_staff(staff_id):
 ##############################
 #       DELETE ACCOUNT       #
 ##############################
-
 @app.route("/api/delete_account", methods=["POST"])
 @login_required
 def api_delete_account():
@@ -1288,7 +1235,6 @@ def api_delete_account():
 ##############################
 #      ADMIN SETUP ROUTE     #
 ##############################
-
 @app.route("/admin_setup", methods=["GET", "POST"])
 def admin_setup():
     existing_admin = Users.query.filter_by(account_type="admin").first()
@@ -1339,7 +1285,6 @@ def admin_setup():
 ##############################
 #   SUPER ADMIN ROUTES       #
 ##############################
-
 @app.route("/api/elevate_super_admin", methods=["POST"])
 @login_required
 def elevate_super_admin_route():
@@ -1447,7 +1392,6 @@ def admin_unlock_account():
 ##############################
 #   Helper Functions         #
 ##############################
-
 def send_verification_email(to_email, username, verification_code):
     subject = "Cave Country Canoes Account Verification Code"
     body = f"""Dear {username},
@@ -1533,6 +1477,7 @@ def send_employee_locked_email(employee):
     current_year = datetime.now().year
     html_content = render_template("emails/employee_locked.html", employee=employee, current_year=current_year)
     send_email(to=employee.email, subject=subject, body=html_content, html=True)
+
 def send_email(to, subject, body, html=False):
     msg = EmailMessage()
     msg["From"] = app.config['MAIL_DEFAULT_SENDER']
@@ -1551,11 +1496,9 @@ def send_email(to, subject, body, html=False):
         app.logger.error(f"Failed to send email to {to}: {e}")
         app.logger.error(traceback.format_exc())
 
-
 ##############################
 #  SESSION VALIDATION        #
 ##############################
-
 def validate_session_token():
     if current_user.is_authenticated:
         param_token = request.args.get('st')
@@ -1568,7 +1511,6 @@ def validate_session_token():
 ##############################
 #   EMPLOYEE DASHBOARD ROUTES #
 ##############################
-
 @app.route("/employee/home")
 @login_required
 def employee_home():
@@ -1592,6 +1534,7 @@ def see_all_emergencies():
             "claimed_by": emergency.assigned_employee.username if emergency.assigned_employee_id else None,
         } for emergency in all_emergencies]
     return render_template("Employee/see_all_emergencies.html", emergencies=data)
+
 @app.route("/employee/claim_emergency", methods=["POST"])
 @login_required
 def claim_emergency():
@@ -1607,7 +1550,6 @@ def claim_emergency():
             app.logger.error("Missing emergency ID in request.")
             return jsonify({"success": False, "message": "Emergency ID is required."}), 400
 
-        # Use query.get() to fetch the emergency
         emergency = Emergencies.query.get(emergency_id)
         if not emergency:
             app.logger.error(f"Emergency ID {emergency_id} not found.")
@@ -1624,7 +1566,6 @@ def claim_emergency():
             app.logger.error(f"Customer with ID {emergency.user_id} not found.")
             return jsonify({"success": False, "message": "Associated customer not found."}), 404
 
-        # Send notifications (you can temporarily comment these out to isolate the claim logic)
         send_assignment_email_to_customer(
             customer=customer,
             emergency_id=emergency.emergency_id,
@@ -1747,7 +1688,6 @@ def employee_logout():
 ##############################
 #   EMAIL TEMPLATE ROUTES    #
 ##############################
-
 @app.route("/emails/employee_locked.html")
 def employee_locked_email():
     return render_template("emails/employee_locked.html")
@@ -1759,7 +1699,6 @@ def account_unlocked_email():
 ##############################
 #       MAIN RUN             #
 ##############################
-
 if __name__ == "__main__":
     ip = get_local_ip()
     app.run(host=ip, debug=False, threaded=False)

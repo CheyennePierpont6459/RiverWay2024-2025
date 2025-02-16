@@ -44,6 +44,17 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       z-index: 1;
     }
+    /* Simple flash message styling */
+    .flash {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .flash-success { background-color: #d4edda; color: #155724; }
+    .flash-danger { background-color: #f8d7da; color: #721c24; }
+    .flash-warning { background-color: #fff3cd; color: #856404; }
+    .flash-info { background-color: #d1ecf1; color: #0c5460; }
   </style>
 </head>
 <body>
@@ -54,7 +65,17 @@
 
   <div class="form-container login-container">
     <h1>Login</h1>
-    <!-- Explicitly set method="POST" -->
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+
+    <!-- Login form -->
     <form id="loginForm" method="POST">
       <!-- Hidden CSRF token -->
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
