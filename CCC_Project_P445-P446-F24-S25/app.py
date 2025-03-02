@@ -342,7 +342,7 @@ def signup_page():
 
         hashed_password = bcrypt.generate_password_hash(password).decode("utf-8")
         token = secrets.token_urlsafe(32)
-        expiration = datetime.now() + timedelta(hours=24)
+        expiration = datetime.now() + timedelta(minutes=30) #delete temp. unverified user after 30 minutes.
 
         new_pending = PendingUser(
             username=username,
@@ -1701,4 +1701,4 @@ def account_unlocked_email():
 ##############################
 if __name__ == "__main__":
     ip = get_local_ip()
-    app.run(host=ip, debug=False, threaded=False)
+    app.run(host=ip, port=5001,debug=False, threaded=False)

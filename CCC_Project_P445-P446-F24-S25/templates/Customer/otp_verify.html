@@ -1,49 +1,90 @@
 ﻿{% extends "Customer/customer_base.html" %}
-{% block content %}
-<div class="container mt-4">
-  <h2>Verify OTP</h2>
-  <p>An OTP has been sent to your email. Please enter it below.</p>
-  <form id="otpVerifyForm">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3">
-      <label for="otpInput" class="form-label">OTP:</label>
-      <input type="text" id="otpInput" class="form-control" placeholder="Enter OTP" required>
-    </div>
-    <button type="submit" class="btn btn-primary">Verify OTP</button>
-  </form>
-  <div id="otpVerifyFlash" class="mt-3"></div>
-  <p>
-    Didn’t receive an OTP? <a href="/request_otp?st={{ session_token }}">Request New OTP</a>.
-  </p>
-</div>
-
-<script>
-  document.getElementById('otpVerifyForm').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const otp = document.getElementById('otpInput').value.trim();
-    try {
-      const response = await fetch('/otp_verify', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-CSRFToken': "{{ csrf_token() }}"
-        },
-        body: JSON.stringify({ otp: otp })
-      });
-      const result = await response.json();
-      const flashDiv = document.getElementById('otpVerifyFlash');
-      if (result.success) {
-        flashDiv.innerHTML = `<div class="alert alert-success">${result.message}</div>`;
-        setTimeout(() => {
-          window.location.href = "/account_update?st={{ session_token }}";
-        }, 1500);
-      } else {
-        flashDiv.innerHTML = `<div class="alert alert-danger">${result.message}</div>`;
-      }
-    } catch (error) {
-      document.getElementById('otpVerifyFlash').innerHTML =
-        `<div class="alert alert-danger">Error: ${error.message}</div>`;
+{% block head %}
+  <style>
+    .center-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 80px);
     }
-  });
-</script>
+    .form-container {
+      max-width: 400px;
+      width: 100%;
+      padding: 20px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    .flash {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .flash-success { background-color: #d4edda; color: #155724; }
+    .flash-danger { background-color: #f8d7da; color: #721c24; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="center-container">
+    <div class="form-container">
+      <h2>Verify OTP</h2>
+      <p>Enter the OTP sent to your email.</p>
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+
+      <form id="otpVerifyForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label for="otpInput">OTP:</label>
+          <input type="text" id="otpInput" name="otp" placeholder="Enter OTP" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Verify OTP</button>
+      </form>
+      <div id="otpVerifyFlash"></div>
+      <p style="text-align: center; margin-top: 15px;">
+        Didn’t receive an OTP? <a href="/request_otp?st={{ session_token }}">Request New OTP</a>.
+      </p>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+    document.getElementById('otpVerifyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const otp = document.getElementById('otpInput').value.trim();
+      try {
+        const response = await fetch('/otp_verify', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          body: JSON.stringify({ otp: otp })
+        });
+        const result = await response.json();
+        const flashDiv = document.getElementById('otpVerifyFlash');
+        if (result.success) {
+          flashDiv.innerHTML = `<div class="flash flash-success">${result.message}</div>`;
+          setTimeout(() => {
+            window.location.href = "/account_update?st=" + SESSION_TOKEN;
+          }, 1500);
+        } else {
+          flashDiv.innerHTML = `<div class="flash flash-danger">${result.message}</div>`;
+        }
+      } catch (error) {
+        document.getElementById('otpVerifyFlash').innerHTML =
+          `<div class="flash flash-danger">Error: ${error.message}</div>`;
+      }
+    });
+  </script>
 {% endblock %}
