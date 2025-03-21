@@ -1,0 +1,203 @@
+﻿{% extends "Employee/employee_base.html" %}
+{% block title %}Employee Chat - CCC Emergency Map{% endblock %}
+
+{% block head %}
+<style>
+  /* Hide footer on this page */
+  footer {
+    display: none !important;
+  }
+  /* Full-screen chat container with white background */
+  .chat-container {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    height: calc(100vh - 70px); /* Adjust if header height changes */
+    background-color: white;
+  }
+  /* Chat message area that scrolls */
+  #chat-box {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    scroll-snap-type: y mandatory;
+  }
+  /* Message list as a vertical stack */
+  #messages {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  /* Basic message bubble styling */
+  .message {
+    max-width: 70%;
+    padding: 10px 15px;
+    border-radius: 15px;
+    word-wrap: break-word;
+    scroll-snap-align: start;
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+  /* Sent messages (current employee) are right-aligned and light blue */
+  .sent {
+    align-self: flex-end;
+    background-color: #cce5ff;
+    text-align: right;
+    border-bottom-right-radius: 4px;
+  }
+  /* Received messages are left-aligned and light grey */
+  .received {
+    align-self: flex-start;
+    background-color: #f0f0f0;
+    text-align: left;
+    border-bottom-left-radius: 4px;
+  }
+  .timestamp {
+    display: block;
+    font-size: 0.7rem;
+    color: #888;
+    margin-top: 4px;
+    text-align: right;
+  }
+  /* Chat form container fixed at the bottom of the chat area */
+  #chat-form-container {
+    display: flex;
+    align-items: center;
+    padding: 10px;
+    background-color: white;
+    border-top: 1px solid #ccc;
+    box-sizing: border-box;
+  }
+  /* Input field styling with white borders */
+  #chat-input {
+    flex: 1;
+    padding: 10px;
+    font-size: 1rem;
+    border: 1px solid white;
+    border-radius: 4px;
+    margin-right: 10px;
+  }
+  /* Send button and scroll-to-bottom button styling */
+  #sendBtn, #scrollBottomBtn {
+    padding: 10px 15px;
+    font-size: 1rem;
+    border: 1px solid white;
+    border-radius: 4px;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    margin-right: 5px;
+  }
+  /* Scroll-to-bottom button: green background, hidden by default */
+  #scrollBottomBtn {
+    background-color: #28a745;
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-container">
+  <div id="chat-box">
+    <ul id="messages"></ul>
+  </div>
+  <div id="chat-form-container">
+    <input type="text" id="chat-input" placeholder="Type a message..." required>
+    <button type="button" id="sendBtn">Send</button>
+    <button type="button" id="scrollBottomBtn">&#x2193;</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Expose the current employee's username from Flask context.
+  const CURRENT_USERNAME = "{{ current_user.username }}";
+
+  const chatBox = document.getElementById('chat-box');
+  const messagesList = document.getElementById('messages');
+  const chatInput = document.getElementById('chat-input');
+  const sendBtn = document.getElementById('sendBtn');
+  const scrollBottomBtn = document.getElementById('scrollBottomBtn');
+
+  // Function to toggle "scroll to bottom" button based on scroll position
+  function checkScroll() {
+    if (chatBox.scrollTop + chatBox.clientHeight < chatBox.scrollHeight - 20) {
+      scrollBottomBtn.style.display = 'inline-block';
+    } else {
+      scrollBottomBtn.style.display = 'none';
+    }
+  }
+  chatBox.addEventListener('scroll', checkScroll);
+
+  // Fetch messages from the API and update the chat list
+  async function fetchMessages() {
+    try {
+      const response = await fetch('/api/chat/messages');
+      const data = await response.json();
+      if (data.success) {
+        messagesList.innerHTML = data.messages.map(msg => {
+          const isCurrent = msg.username === CURRENT_USERNAME;
+          const msgClass = isCurrent ? "message sent" : "message received";
+          const senderLabel = isCurrent ? "" : `<strong>${msg.username}</strong><br>`;
+          return `<li class="${msgClass}">
+                    ${senderLabel}
+                    ${msg.message}
+                    <span class="timestamp">${msg.timestamp}</span>
+                  </li>`;
+        }).join('');
+        // Auto-scroll if already near the bottom
+        if (chatBox.scrollTop + chatBox.clientHeight >= chatBox.scrollHeight - 20) {
+          chatBox.scrollTop = chatBox.scrollHeight;
+        }
+        checkScroll();
+      } else {
+        console.error("Error fetching messages:", data.message);
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  }
+
+  // Send a new message via the API
+  async function sendMessage() {
+    const message = chatInput.value.trim();
+    if (!message) return;
+    try {
+      const response = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': CSRF_TOKEN
+        },
+        body: JSON.stringify({ message: message })
+      });
+      const data = await response.json();
+      if (data.success) {
+        chatInput.value = '';
+        fetchMessages();
+      } else {
+        console.error("Error sending message:", data.message);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+    }
+  }
+
+  sendBtn.addEventListener('click', sendMessage);
+  scrollBottomBtn.addEventListener('click', () => {
+    chatBox.scrollTop = chatBox.scrollHeight;
+  });
+
+  // Poll for new messages every 3 seconds.
+  setInterval(fetchMessages, 3000);
+  // Initial load of messages.
+  fetchMessages();
+</script>
+{% endblock %}

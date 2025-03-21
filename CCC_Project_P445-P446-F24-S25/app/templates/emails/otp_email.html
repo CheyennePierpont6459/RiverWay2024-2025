@@ -1,0 +1,66 @@
+﻿<!doctype html>
+<html lang="en-US">
+<head>
+  <meta charset="utf-8">
+  <title>Your OTP Code</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f2f2f2;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 600px;
+      margin: auto;
+      background: #ffffff;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .header {
+      text-align: center;
+      padding-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0;
+      color: #007bff;
+    }
+    .otp {
+      font-size: 28px;
+      font-weight: bold;
+      color: #007bff;
+      text-align: center;
+      margin: 20px 0;
+      letter-spacing: 2px;
+    }
+    .content {
+      font-size: 16px;
+      line-height: 1.5;
+    }
+    .footer {
+      font-size: 12px;
+      text-align: center;
+      color: #888;
+      margin-top: 30px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>Your OTP Code</h1>
+    </div>
+    <div class="content">
+      <p>Dear {{ username }},</p>
+      <p>You have requested to update your account. Please use the following One-Time Password (OTP) to proceed:</p>
+      <div class="otp">{{ otp }}</div>
+      <p>This OTP is valid for 10 minutes. If you did not make this request, please contact our support immediately.</p>
+      <p>Thank you,<br>The Support Team</p>
+    </div>
+    <div class="footer">
+      <p>If you have any questions, please contact us at {{ support_email }}</p>
+    </div>
+  </div>
+</body>
+</html>

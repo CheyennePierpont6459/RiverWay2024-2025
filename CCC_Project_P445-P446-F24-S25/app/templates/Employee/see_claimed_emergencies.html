@@ -1,0 +1,135 @@
+﻿{% extends "Employee/employee_base.html" %}
+
+{% block title %}My Claimed Emergencies{% endblock %}
+
+{% block head %}
+  <!-- Must have the meta CSRF token so that the JS can read it -->
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <h1 class="mb-4">My Claimed Emergencies</h1>
+
+  {% if emergencies %}
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>Emergency ID</th>
+        <th>Location</th>
+        <th>Notes</th>
+        <th>Customer</th>
+        <th>Action</th>
+      </tr>
+    </thead>
+    <tbody id="emergency-list">
+      {% for emergency in emergencies %}
+      <tr id="emergency-{{ emergency.emergency_id }}">
+        <td>{{ emergency.emergency_id }}</td>
+        <td>{{ emergency.location_details }}</td>
+        <td>{{ emergency.distress_notes }}</td>
+        <td>{{ emergency.customer }}</td>
+        <td>
+          <button
+            class="btn btn-danger btn-sm resolve-button"
+            data-id="{{ emergency.emergency_id }}"
+          >
+            Resolve
+          </button>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+    <p>You have no claimed emergencies at the moment.</p>
+  {% endif %}
+</div>
+
+<!-- Notification container for success/error messages -->
+<div id="notification-container" class="notification-container"></div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    // Grab the CSRF token from meta
+    const csrfMeta = document.querySelector('meta[name="csrf-token"]');
+    if (!csrfMeta) {
+      console.error("CSRF meta tag not found!");
+      return;
+    }
+    const CSRF_TOKEN = csrfMeta.getAttribute('content');
+
+    // Attach click handler to each Resolve button
+    document.querySelectorAll('.resolve-button').forEach(button => {
+      button.addEventListener('click', async () => {
+        const emergencyId = button.dataset.id;
+        if (!confirm(`Are you sure you want to resolve Emergency #${emergencyId}?`)) {
+          return;
+        }
+
+        try {
+          const response = await fetch('/employee/resolve_emergency', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRFToken': CSRF_TOKEN
+            },
+            body: JSON.stringify({ emergency_id: emergencyId }),
+            credentials: 'same-origin'
+          });
+
+          const result = await response.json();
+
+          if (response.ok) {
+            // Remove row on success
+            const row = document.getElementById(`emergency-${emergencyId}`);
+            row?.remove();
+            showNotification('Emergency resolved successfully!', 'success');
+          } else {
+            showNotification(result.message || 'Failed to resolve emergency.', 'error');
+          }
+        } catch (err) {
+          console.error('Resolution error:', err);
+          showNotification('An error occurred. Please try again.', 'error');
+        }
+      });
+    });
+  });
+
+  function showNotification(message, type='info') {
+    const container = document.getElementById('notification-container');
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    container.appendChild(notification);
+
+    setTimeout(() => {
+      notification.remove();
+    }, 3000);
+  }
+</script>
+
+<style>
+.notification-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 9999;
+}
+.notification {
+  padding: 10px 16px;
+  margin-bottom: 5px;
+  border-radius: 4px;
+  color: #fff;
+  animation: fadein 0.3s;
+}
+.notification.success { background-color: #28a745; }
+.notification.error   { background-color: #dc3545; }
+.notification.info    { background-color: #17a2b8; }
+
+@keyframes fadein {
+  from {opacity:0;}
+  to   {opacity:1;}
+}
+</style>
+{% endblock %}

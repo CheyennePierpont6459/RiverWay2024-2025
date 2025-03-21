@@ -1,0 +1,199 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Content Security Policy: restrict resources to trusted sources -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline';">
+  <title>{% block title %}Admin Dashboard - Cave Country Canoes{% endblock %}</title>
+  <!-- CSRF token provided via meta tag for AJAX calls -->
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <!-- Bootstrap CSS -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <!-- Optional admin-specific CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='admin.css') }}">
+  <!-- DOMPurify for client-side sanitization -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.6/purify.min.js"></script>
+  <!-- Expose tokens to JavaScript -->
+  <script>
+    const SESSION_TOKEN = "{{ session_token }}";
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+  </script>
+  {% block head %}{% endblock %}
+  <style>
+    /* Reset and basic styling */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      background-color: #f8f9fa;
+      transition: margin-left 0.3s;
+    }
+    /* Sidebar styling (same as customer base) */
+    #sidebar {
+      width: 250px;
+      background-color: #343a40;
+      color: #fff;
+      position: fixed;
+      top: 0;
+      left: -250px; /* Hidden initially */
+      height: 100vh;
+      padding: 20px;
+      overflow-y: auto;
+      transition: left 0.3s;
+      z-index: 1000;
+    }
+    /* Updated h3 style to force white text */
+    #sidebar h3 {
+      margin-bottom: 20px;
+      color: #fff;
+    }
+    #sidebar a {
+      display: block;
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 15px;
+      margin-bottom: 5px;
+    }
+    #sidebar a:hover {
+      background-color: #495057;
+      border-radius: 4px;
+    }
+    /* Content area styling */
+    .content {
+      margin-left: 0;
+      padding: 20px;
+      transition: margin-left 0.3s;
+    }
+    /* Toggle button styling */
+    #toggle-btn {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      background: none;
+      border: none;
+      font-size: 1.5em;
+      cursor: pointer;
+      color: #343a40;
+      z-index: 1100;
+      transition: left 0.3s;
+    }
+    /* Footer styling */
+    .footer {
+      background-color: #343a40;
+      color: #f2f2f2;
+      text-align: center;
+      padding: 10px 20px;
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+    }
+    @media (max-width: 768px) {
+      #sidebar {
+        width: 200px;
+        left: -200px;
+      }
+      .content {
+        padding: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Sidebar Navigation -->
+  <div id="sidebar">
+    <h3>Admin Panel</h3>
+    <a href="{{ url_for('main.admin_home', st=session_token) }}">🏠 Home</a>
+    <a href="{{ url_for('main.admin_manage_staff', st=session_token) }}">👥 Manage Staff</a>
+    <a href="{{ url_for('main.admin_manage_emergencies', st=session_token) }}">🚨 Manage Emergencies</a>
+    <a href="{{ url_for('main.admin_chat', st=session_token) }}">💬 Chat</a>
+    <a href="{{ url_for('main.logout', st=session_token) }}">🚪 Logout</a>
+  </div>
+
+  <!-- Toggle Button -->
+  <button id="toggle-btn">☰</button>
+
+  <!-- Main Content Area -->
+  <div class="content">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+          <!-- Server-rendered messages are autoescaped by Jinja2 -->
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    <p>&copy; <span id="current-year"></span> Cave Country Canoes. All rights reserved.</p>
+  </div>
+
+  <script>
+    // Set current year for footer
+    document.getElementById("current-year").textContent = new Date().getFullYear().toString();
+
+    // Toggle sidebar functionality
+    document.addEventListener("DOMContentLoaded", function() {
+      const sidebar = document.getElementById("sidebar");
+      const content = document.querySelector(".content");
+      const toggleBtn = document.getElementById("toggle-btn");
+      const sidebarWidth = 250;
+      toggleBtn.addEventListener("click", function() {
+        if (sidebar.style.left === "0px") {
+          sidebar.style.left = "-" + sidebarWidth + "px";
+          content.style.marginLeft = "0";
+          toggleBtn.style.left = "10px";
+        } else {
+          sidebar.style.left = "0px";
+          content.style.marginLeft = sidebarWidth + "px";
+          toggleBtn.style.left = (sidebarWidth + 10) + "px";
+        }
+      });
+    });
+  </script>
+
+  <!-- Universal Form Validation using DOMPurify to block script entries -->
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+      function decodeHTML(html) {
+        var txt = document.createElement("textarea");
+        txt.innerHTML = html;
+        return txt.value;
+      }
+      // Apply validation on every form.
+      const forms = document.querySelectorAll("form");
+      forms.forEach(form => {
+        form.addEventListener("submit", function(e) {
+          // Check all text, email, password inputs and textareas.
+          const fields = form.querySelectorAll("input[type='text'], input[type='email'], input[type='password'], textarea");
+          for (let field of fields) {
+            const rawValue = field.value;
+            const sanitized = DOMPurify.sanitize(rawValue, { ALLOWED_TAGS: [] });
+            const decoded = decodeHTML(sanitized);
+            // If the raw value differs from the decoded sanitized value, block submission.
+            if (rawValue !== decoded) {
+              e.preventDefault();
+              alert("🚫 Disallowed script content detected in your input. Please remove it and try again.");
+              field.focus();
+              return false;
+            }
+          }
+        });
+      });
+    });
+  </script>
+
+  <!-- Bootstrap JS Bundle -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

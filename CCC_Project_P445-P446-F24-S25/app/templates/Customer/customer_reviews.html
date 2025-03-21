@@ -1,0 +1,235 @@
+﻿{% extends "Customer/customer_base.html" %}
+
+{% block head %}
+  <!-- Tailwind is assumed to be included in the base template -->
+  <style>
+    /* Optional custom CSS; here we use Tailwind utilities directly */
+  </style>
+{% endblock %}
+
+{% block content %}
+<div class="container mx-auto p-4">
+  <p class="mb-4">
+    Below is the map of the seven-mile Trip. Please use this as a guide if you need to contact us.
+  </p>
+
+  <!-- Responsive flex layout: column on small screens, row on md+ -->
+  <div class="flex flex-col md:flex-row gap-4 mb-8">
+    <!-- Map Section (Left Column) -->
+    <div class="md:w-1/2">
+      <img id="map-image" src="{{ url_for('static', filename='images/CCCRiverMap24-WPhotos.jpeg') }}"
+           alt="Map Image"
+           class="w-full h-auto border border-gray-300 rounded-lg shadow">
+    </div>
+
+    <!-- Review Form & Reviews List (Right Column) -->
+    <div class="md:w-1/2 bg-white p-4 border rounded shadow flex flex-col">
+      <!-- Review Submission Form -->
+      <div class="review-form mb-4">
+        <h1 class="text-2xl font-bold mb-4">Submit Review</h1>
+        <form id="reviewForm" class="space-y-4">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div>
+            <label for="ratingHeader" class="block text-sm font-medium">Review Title:</label>
+            <input type="text" id="ratingHeader" required
+                   class="border rounded p-2 w-full">
+          </div>
+          <div>
+            <label for="ratingNotes" class="block text-sm font-medium">Review Notes:</label>
+            <textarea id="ratingNotes" required
+                      class="border rounded p-2 w-full"></textarea>
+          </div>
+          <!-- Custom Star Rating for submission -->
+          <div>
+            <label class="block text-sm font-medium mb-1">Rating:</label>
+            <div id="starRating" class="flex space-x-1">
+              <svg data-value="1" class="w-8 h-8 cursor-pointer text-gray-300" fill="currentColor" viewBox="0 0 576 512">
+                <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
+              </svg>
+              <svg data-value="2" class="w-8 h-8 cursor-pointer text-gray-300" fill="currentColor" viewBox="0 0 576 512">
+                <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
+              </svg>
+              <svg data-value="3" class="w-8 h-8 cursor-pointer text-gray-300" fill="currentColor" viewBox="0 0 576 512">
+                <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
+              </svg>
+              <svg data-value="4" class="w-8 h-8 cursor-pointer text-gray-300" fill="currentColor" viewBox="0 0 576 512">
+                <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
+              </svg>
+              <svg data-value="5" class="w-8 h-8 cursor-pointer text-gray-300" fill="currentColor" viewBox="0 0 576 512">
+                <path d="M316.9 18C311.6 7 300.4 0 288.1 0s-23.4 7-28.8 18L195 150.3 51.4 171.5c-12 1.8-22 10.2-25.7 21.7s-.7 24.2 7.9 32.7L137.8 329 113.2 474.7c-2 12 3 24.2 12.9 31.3s23 8 33.8 2.3l128.3-68.5 128.3 68.5c10.8 5.7 23.9 4.9 33.8-2.3s14.9-19.3 12.9-31.3L438.5 329 542.7 225.9c8.6-8.5 11.7-21.2 7.9-32.7s-13.7-19.9-25.7-21.7L381.2 150.3 316.9 18z"></path>
+              </svg>
+            </div>
+            <input type="hidden" id="ratingValue" name="rating_value" value="3">
+          </div>
+          <div>
+            <button type="submit" class="bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded">
+              Submit Review
+            </button>
+          </div>
+        </form>
+        <div id="reviewResult" class="mt-4"></div>
+      </div>
+
+      <!-- Reviews List in a Snap Scroll Container -->
+      <div id="reviewScrollContainer" class="overflow-y-auto max-h-96 snap-y snap-mandatory space-y-4">
+        <!-- Reviews will be dynamically loaded here -->
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Star Rating Interaction for submission
+  const stars = document.querySelectorAll('#starRating svg');
+  const ratingInput = document.getElementById('ratingValue');
+  let currentRating = parseInt(ratingInput.value) || 0;
+
+  function updateStars(rating) {
+    stars.forEach(star => {
+      const starValue = parseInt(star.getAttribute('data-value'));
+      if (starValue <= rating) {
+        star.classList.remove('text-gray-300');
+        star.classList.add('text-yellow-400');
+      } else {
+        star.classList.remove('text-yellow-400');
+        star.classList.add('text-gray-300');
+      }
+    });
+  }
+
+  updateStars(currentRating);
+
+  stars.forEach(star => {
+    star.addEventListener('mouseover', function() {
+      const hoverRating = parseInt(this.getAttribute('data-value'));
+      updateStars(hoverRating);
+    });
+
+    star.addEventListener('mouseout', function() {
+      updateStars(currentRating);
+    });
+
+    star.addEventListener('click', function() {
+      currentRating = parseInt(this.getAttribute('data-value'));
+      ratingInput.value = currentRating;
+      updateStars(currentRating);
+    });
+  });
+
+  // Review Form Submission
+  const reviewForm = document.getElementById('reviewForm');
+  const reviewResult = document.getElementById('reviewResult');
+  const reviewScrollContainer = document.getElementById('reviewScrollContainer');
+
+  reviewForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const ratingHeader = document.getElementById('ratingHeader').value.trim();
+    const ratingNotes = document.getElementById('ratingNotes').value.trim();
+    const ratingValue = ratingInput.value;
+    const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+
+    if (!ratingValue || ratingValue ===0) {
+      reviewResult.innerHTML = `<p class="text-red-600">Please select a star rating.</p>`;
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/reviews', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRFToken': csrfToken
+        },
+        body: JSON.stringify({
+          rating_header: ratingHeader,
+          rating_notes: ratingNotes,
+          rating_value: ratingValue
+        }),
+        credentials: 'same-origin'
+      });
+
+      const result = await response.json();
+      reviewResult.innerHTML = `<p class="${result.success ? 'text-green-600' : 'text-red-600'}">${result.message}</p>`;
+
+      if (result.success) {
+        reviewForm.reset();
+        currentRating = 3;
+        ratingInput.value = 3;
+        updateStars(currentRating);
+        loadReviews();
+      }
+    } catch (error) {
+      reviewResult.innerHTML = `<p class="text-red-600">Error: ${error.message}</p>`;
+    }
+  });
+
+  // Function to generate star rating display using Unicode stars
+  function generateStarRatingDisplay(rating) {
+    const intRating = parseInt(rating, 10) || 0;
+    const filledStars = "★".repeat(intRating);
+    const emptyStars = "☆".repeat(5 - intRating);
+    return `<div class="rating-display text-lg">${filledStars}${emptyStars}</div>`;
+  }
+
+  // Load reviews from API and render them with a delete "X" button in a snap scroll container
+  async function loadReviews() {
+    try {
+      const response = await fetch('/api/reviews', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+      });
+      const data = await response.json();
+      if (data.success) {
+        reviewScrollContainer.innerHTML = data.reviews.map(review =>
+          `<div class="review-card relative snap-start" data-review-id="${review.rating_id}">
+             <div class="flex justify-between items-center">
+               <h3 class="text-xl font-bold">${review.rating_header}</h3>
+               <button data-review-id="${review.rating_id}" class="delete-review bg-red-500 hover:bg-red-600 text-white text-xs py-1 px-2 rounded">
+                 ✖
+               </button>
+             </div>
+             ${generateStarRatingDisplay(review.rating_value)}
+             <p class="mt-2">${review.rating_notes}</p>
+             <p class="text-sm text-gray-500 mt-1">Date: ${new Date(review.created_at).toLocaleDateString()}</p>
+           </div>`
+        ).join("");
+      }
+    } catch (error) {
+      console.error("Error loading reviews:", error);
+    }
+  }
+
+  // Delete review functionality
+  reviewScrollContainer.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('delete-review')) {
+      const reviewId = e.target.getAttribute('data-review-id');
+      const csrfToken = document.querySelector('input[name="csrf_token"]').value;
+      try {
+        const response = await fetch(`/api/reviews/${reviewId}`, {
+          method: 'DELETE',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken
+          },
+          credentials: 'same-origin'
+        });
+        const result = await response.json();
+        if (result.success) {
+          loadReviews();
+        } else {
+          alert(result.message);
+        }
+      } catch (error) {
+        alert("Error deleting review: " + error.message);
+      }
+    }
+  });
+
+  loadReviews();
+});
+</script>
+{% endblock %}

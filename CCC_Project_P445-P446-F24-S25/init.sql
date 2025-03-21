@@ -1,0 +1,1 @@
+﻿CREATE SCHEMA IF NOT EXISTS cave_country_canoes;

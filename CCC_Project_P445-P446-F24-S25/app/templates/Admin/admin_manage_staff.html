@@ -1,0 +1,571 @@
+﻿{% extends "Admin/admin_base.html" %}
+{% block title %}Manage Staff - Cave Country Canoes{% endblock %}
+
+{% block head %}
+  <!-- Include FontAwesome v3 for eye icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css">
+  <style>
+    /* Grid helpers for two-column layout */
+    .grid-2cols {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+    }
+    .col-span-2 {
+      grid-column: span 2;
+    }
+    /* Popup form styling */
+    .form-popup {
+      position: fixed;
+      top: 20%;
+      left: 50%;
+      transform: translate(-50%, -20%);
+      background: #fff;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      z-index: 2000;
+      width: 500px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+    }
+    .form-popup .form-group label {
+      font-weight: bold;
+      margin-bottom: 5px;
+      display: block;
+    }
+    .form-popup .form-group input,
+    .form-popup .form-group textarea {
+      width: 100%;
+      padding: 12px;
+      font-size: 1.1rem;
+      box-sizing: border-box;
+      margin-bottom: 10px;
+    }
+    /* Input container for password with toggle icon */
+    .input-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .input-container input {
+      flex: 1;
+      padding-right: 60px;
+    }
+    .toggle-eye {
+      position: absolute;
+      right: 10px;
+      cursor: pointer;
+      font-size: 1.5rem;
+      color: #555;
+    }
+    /* Password strength bar container styling */
+    #newPasswordStrengthBarContainer,
+    #adminPasswordStrengthBarContainer,
+    #updatePasswordStrengthBarContainer {
+      width: 100%;
+      height: 6px;
+      background-color: #e0e0e0;
+      margin-top: 5px;
+      border: 1px solid #ccc;
+    }
+    #newPasswordStrengthBar,
+    #adminPasswordStrengthBar,
+    #updatePasswordStrengthBar {
+      height: 100%;
+      width: 0%;
+      background-color: red;
+      transition: width 0.3s, background-color 0.3s;
+    }
+    /* Center the lock checkbox */
+    .center-checkbox {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    /* Extra top margin for confirm password fields in right column */
+    .mt-4 {
+      margin-top: 1rem;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+<h2>Manage Staff</h2>
+<div class="staff-actions">
+  <button class="btn" onclick="showCreateEmployeeForm()">Create New Employee</button>
+  {% if current_user.account_type == "super_admin" %}
+    <button class="btn" onclick="showCreateAdminForm()">Create New Admin</button>
+  {% else %}
+    <button class="btn disabled" onclick="alert('Root permission required to create an admin.')">Create New Admin</button>
+  {% endif %}
+</div>
+
+<div id="alerts"></div>
+
+<table class="staff-table table table-striped">
+  <thead>
+    <tr>
+      <th>ID</th>
+      <th>Username</th>
+      <th>Email</th>
+      <th>Phone Number</th>
+      <th>Account Type</th>
+      <th>Status</th>
+      <th>Actions</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for staff in employees + admins %}
+    <tr>
+      <td>{{ staff.user_id }}</td>
+      <td>{{ staff.username }}</td>
+      <td>{{ staff.email }}</td>
+      <td>{{ staff.phone_number }}</td>
+      <td>{{ staff.account_type }}</td>
+      <td>
+        {% if staff.is_locked %}
+          <span class="status locked">Locked</span>
+        {% else %}
+          <span class="status active">Active</span>
+        {% endif %}
+      </td>
+      <td>
+        {% if staff.user_id == current_user.user_id %}
+          {% if current_user.account_type == "super_admin" %}
+            <button class="btn" onclick="deleteStaff({{ staff.user_id }})">Delete</button>
+          {% else %}
+            <button class="btn disabled" onclick="alert('You cannot delete your own account.');">Delete</button>
+          {% endif %}
+        {% elif staff.account_type == "admin" %}
+          {% if current_user.account_type == "super_admin" %}
+            <button class="btn" onclick="deleteStaff({{ staff.user_id }})">Delete</button>
+          {% else %}
+            <button class="btn disabled" onclick="alert('Only a super admin can delete an admin account.');">Delete</button>
+          {% endif %}
+        {% else %}
+          <button class="btn" onclick="deleteStaff({{ staff.user_id }})">Delete</button>
+        {% endif %}
+        {% if current_user.account_type == "super_admin" and staff.user_id != current_user.user_id %}
+          <button class="btn" onclick="toggleLock({{ staff.user_id }}, {{ staff.is_locked|tojson }})">
+            {% if staff.is_locked %}Unlock{% else %}Lock{% endif %}
+          </button>
+        {% endif %}
+        <button class="btn" onclick="showUpdateStaffForm({{ staff.user_id }}, '{{ staff.username }}', '{{ staff.email }}', '{{ staff.phone_number }}', '{{ staff.account_type }}', {{ staff.is_locked|tojson }})">Update</button>
+      </td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+
+<!-- Create New Employee Form -->
+<div id="createEmployeeForm" class="form-popup" style="display:none;">
+  <h3>Create New Employee</h3>
+  <form id="createEmployeeFormInner">
+    <div class="grid-2cols">
+      <div class="form-group">
+        <label>Username:</label>
+        <input type="text" id="new_username" required>
+      </div>
+      <div class="form-group">
+        <label>Email:</label>
+        <input type="email" id="new_email" required>
+      </div>
+      <div class="form-group">
+        <label>Password:</label>
+        <div class="input-container">
+          <input type="password" id="new_password" placeholder="Password" required>
+          <span class="toggle-eye" id="toggleNewPassword"><i class="icon-eye-open"></i></span>
+        </div>
+        <div id="newPasswordStrengthBarContainer">
+          <div id="newPasswordStrengthBar"></div>
+        </div>
+      </div>
+      <div class="form-group mt-4">
+        <label>Confirm Password:</label>
+        <div class="input-container">
+          <input type="password" id="confirm_new_password" placeholder="Confirm Password" required>
+          <span class="toggle-eye" id="toggleConfirmNewPassword"><i class="icon-eye-open"></i></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone Number:</label>
+        <input type="text" id="new_phone_number" required>
+      </div>
+      <div class="form-group center-checkbox">
+        {% if current_user.account_type == "super_admin" %}
+          <label><input type="checkbox" id="new_is_locked" class="mr-2"> Lock Account</label>
+        {% endif %}
+      </div>
+    </div>
+    <div class="form-group col-span-2">
+      <button type="button" id="generateEmployeePasswordBtn">Generate Secure Password</button>
+    </div>
+    <div class="form-group col-span-2">
+      <button type="submit" class="btn">Submit</button>
+      <button type="button" class="btn" onclick="hideCreateEmployeeForm()">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<!-- Create New Admin Form -->
+<div id="createAdminForm" class="form-popup" style="display:none;">
+  <h3>Create New Admin</h3>
+  <form id="createAdminFormInner">
+    <div class="grid-2cols">
+      <div class="form-group">
+        <label>Username:</label>
+        <input type="text" id="admin_username" required>
+      </div>
+      <div class="form-group">
+        <label>Email:</label>
+        <input type="email" id="admin_email" required>
+      </div>
+      <div class="form-group">
+        <label>Password:</label>
+        <div class="input-container">
+          <input type="password" id="admin_password" placeholder="Password" required>
+          <span class="toggle-eye" id="toggleAdminPassword"><i class="icon-eye-open"></i></span>
+        </div>
+        <div id="adminPasswordStrengthBarContainer">
+          <div id="adminPasswordStrengthBar"></div>
+        </div>
+      </div>
+      <div class="form-group mt-4">
+        <label>Confirm Password:</label>
+        <div class="input-container">
+          <input type="password" id="confirm_admin_password" placeholder="Confirm Password" required>
+          <span class="toggle-eye" id="toggleConfirmAdminPassword"><i class="icon-eye-open"></i></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone Number:</label>
+        <input type="text" id="admin_phone_number" required>
+      </div>
+      <div class="form-group center-checkbox">
+        {% if current_user.account_type == "super_admin" %}
+          <label><input type="checkbox" id="admin_is_locked" class="mr-2"> Lock Account</label>
+        {% endif %}
+      </div>
+    </div>
+    <div class="form-group col-span-2">
+      <button type="button" id="generateAdminPasswordBtn">Generate Secure Password</button>
+    </div>
+    <div class="form-group col-span-2">
+      <button type="submit" class="btn">Submit</button>
+      <button type="button" class="btn" onclick="hideCreateAdminForm()">Cancel</button>
+    </div>
+  </form>
+</div>
+
+<!-- Update Staff Form -->
+<div id="updateStaffForm" class="form-popup" style="display:none;">
+  <h3>Update Staff</h3>
+  <form id="updateStaffFormInner">
+    <input type="hidden" id="update_user_id">
+    <div class="grid-2cols">
+      <div class="form-group">
+        <label>Username:</label>
+        <input type="text" id="update_username" required>
+      </div>
+      <div class="form-group">
+        <label>Email:</label>
+        <input type="email" id="update_email" required>
+      </div>
+      <div class="form-group">
+        <label>New Password (leave blank to keep current):</label>
+        <div class="input-container">
+          <input type="password" id="update_password" placeholder="New Password">
+          <span class="toggle-eye" id="toggleUpdatePassword"><i class="icon-eye-open"></i></span>
+        </div>
+        <div id="updatePasswordStrengthBarContainer">
+          <div id="updatePasswordStrengthBar"></div>
+        </div>
+      </div>
+      <div class="form-group mt-4">
+        <label>Confirm New Password:</label>
+        <div class="input-container">
+          <input type="password" id="confirm_update_password" placeholder="Confirm New Password">
+          <span class="toggle-eye" id="toggleConfirmUpdatePassword"><i class="icon-eye-open"></i></span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Phone Number:</label>
+        <input type="text" id="update_phone_number" required>
+      </div>
+      <div class="form-group center-checkbox">
+        {% if current_user.account_type == "super_admin" %}
+          <label><input type="checkbox" id="update_is_locked" class="mr-2"> Lock Account</label>
+        {% endif %}
+      </div>
+    </div>
+    <div class="form-group col-span-2">
+      <button type="button" id="generateUpdatePasswordBtn">Generate Secure Password</button>
+    </div>
+    <div class="form-group col-span-2">
+      <button type="submit" class="btn">Update</button>
+      <button type="button" class="btn" onclick="hideUpdateStaffForm()">Cancel</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // --- Password Strength and Generation Functions ---
+  function calculateCharset(password) {
+    let charset = 0;
+    if (/[a-z]/.test(password)) charset += 26;
+    if (/[A-Z]/.test(password)) charset += 26;
+    if (/[0-9]/.test(password)) charset += 10;
+    if (/[\W_]/.test(password)) charset += 32;
+    return charset;
+  }
+  function calculateEntropy(password) {
+    const charsetSize = calculateCharset(password);
+    if (charsetSize === 0) return 0;
+    return password.length * Math.log2(charsetSize);
+  }
+  function evaluatePasswordStrength(password) {
+    const entropy = calculateEntropy(password);
+    let strengthLabel, color;
+    if (entropy < 28) { strengthLabel = "Very Weak"; color = "red"; }
+    else if (entropy < 36) { strengthLabel = "Weak"; color = "orange"; }
+    else if (entropy < 60) { strengthLabel = "Moderate"; color = "goldenrod"; }
+    else if (entropy < 128) { strengthLabel = "Strong"; color = "green"; }
+    else { strengthLabel = "Very Strong"; color = "blue"; }
+    return { strengthLabel, color, entropy };
+  }
+  function updateStrengthBar(inputId, barContainerId, barId) {
+    const pwd = document.getElementById(inputId).value;
+    const { entropy, color } = evaluatePasswordStrength(pwd);
+    const percent = Math.min((entropy / 256) * 100, 100);
+    const bar = document.getElementById(barId);
+    bar.style.width = percent + "%";
+    bar.style.backgroundColor = color;
+  }
+  function generateSecurePassword() {
+    const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:',.<>/?";
+    const length = 40;
+    const randomValues = new Uint32Array(length);
+    window.crypto.getRandomValues(randomValues);
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset[randomValues[i] % charset.length];
+    }
+    return password;
+  }
+  // --- Toggle Password Visibility ---
+  function setupTogglePassword(toggleId, fieldId) {
+    document.getElementById(toggleId).addEventListener("click", function() {
+      const field = document.getElementById(fieldId);
+      if (field.type === "password") {
+        field.type = "text";
+        this.innerHTML = '<i class="icon-eye-close"></i>';
+      } else {
+        field.type = "password";
+        this.innerHTML = '<i class="icon-eye-open"></i>';
+      }
+    });
+  }
+  setupTogglePassword("toggleNewPassword", "new_password");
+  setupTogglePassword("toggleConfirmNewPassword", "confirm_new_password");
+  setupTogglePassword("toggleAdminPassword", "admin_password");
+  setupTogglePassword("toggleConfirmAdminPassword", "confirm_admin_password");
+  setupTogglePassword("toggleUpdatePassword", "update_password");
+  setupTogglePassword("toggleConfirmUpdatePassword", "confirm_update_password");
+
+  // --- Strength Bar Updates ---
+  document.getElementById("new_password").addEventListener("input", function() {
+    updateStrengthBar("new_password", "newPasswordStrengthBarContainer", "newPasswordStrengthBar");
+  });
+  document.getElementById("admin_password").addEventListener("input", function() {
+    updateStrengthBar("admin_password", "adminPasswordStrengthBarContainer", "adminPasswordStrengthBar");
+  });
+  document.getElementById("update_password").addEventListener("input", function() {
+    updateStrengthBar("update_password", "updatePasswordStrengthBarContainer", "updatePasswordStrengthBar");
+  });
+
+  // --- Generate Secure Password Button Handlers ---
+  document.getElementById("generateEmployeePasswordBtn").addEventListener("click", function() {
+    const pwd = generateSecurePassword();
+    document.getElementById("new_password").value = pwd;
+    document.getElementById("confirm_new_password").value = pwd;
+    updateStrengthBar("new_password", "newPasswordStrengthBarContainer", "newPasswordStrengthBar");
+    alert("A secure password has been generated and filled in.");
+  });
+  document.getElementById("generateAdminPasswordBtn").addEventListener("click", function() {
+    const pwd = generateSecurePassword();
+    document.getElementById("admin_password").value = pwd;
+    document.getElementById("confirm_admin_password").value = pwd;
+    updateStrengthBar("admin_password", "adminPasswordStrengthBarContainer", "adminPasswordStrengthBar");
+    alert("A secure password has been generated and filled in.");
+  });
+  document.getElementById("generateUpdatePasswordBtn").addEventListener("click", function() {
+    const pwd = generateSecurePassword();
+    document.getElementById("update_password").value = pwd;
+    document.getElementById("confirm_update_password").value = pwd;
+    updateStrengthBar("update_password", "updatePasswordStrengthBarContainer", "updatePasswordStrengthBar");
+    alert("A secure password has been generated and filled in.");
+  });
+
+  // --- AJAX for Creating Employee ---
+  document.getElementById("createEmployeeFormInner").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const username = document.getElementById("new_username").value.trim();
+    const email = document.getElementById("new_email").value.trim();
+    const password = document.getElementById("new_password").value;
+    const confirmPassword = document.getElementById("confirm_new_password").value;
+    const phone_number = document.getElementById("new_phone_number").value.trim();
+    const is_locked = document.getElementById("new_is_locked") ? document.getElementById("new_is_locked").checked : false;
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    try {
+      const response = await fetch("/api/admin/create_employee", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": CSRF_TOKEN
+        },
+        body: JSON.stringify({ username, email, password, phone_number, is_locked })
+      });
+      const data = await response.json();
+      alert(data.message);
+      if (data.success) location.reload();
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  });
+
+  // --- AJAX for Creating Admin ---
+  document.getElementById("createAdminFormInner").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const username = document.getElementById("admin_username").value.trim();
+    const email = document.getElementById("admin_email").value.trim();
+    const password = document.getElementById("admin_password").value;
+    const confirmPassword = document.getElementById("confirm_admin_password").value;
+    const phone_number = document.getElementById("admin_phone_number").value.trim();
+    const is_locked = document.getElementById("admin_is_locked") ? document.getElementById("admin_is_locked").checked : false;
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    try {
+      const response = await fetch("/api/admin/create_admin", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": CSRF_TOKEN
+        },
+        body: JSON.stringify({ username, email, password, phone_number, is_locked })
+      });
+      const data = await response.json();
+      alert(data.message);
+      if (data.success) location.reload();
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  });
+
+  // --- AJAX for Updating Staff ---
+  document.getElementById("updateStaffFormInner").addEventListener("submit", async function(e) {
+    e.preventDefault();
+    const user_id = document.getElementById("update_user_id").value;
+    const username = document.getElementById("update_username").value.trim();
+    const email = document.getElementById("update_email").value.trim();
+    const password = document.getElementById("update_password").value;
+    const confirmPassword = document.getElementById("confirm_update_password").value;
+    const phone_number = document.getElementById("update_phone_number").value.trim();
+    const is_locked = document.getElementById("update_is_locked") ? document.getElementById("update_is_locked").checked : false;
+    if (password !== confirmPassword) {
+      alert("Passwords do not match!");
+      return;
+    }
+    const payload = { username, email, phone_number, is_locked };
+    if (password) {
+      payload.password = password;
+    }
+    try {
+      const response = await fetch("/api/admin/update_staff/" + user_id, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRFToken": CSRF_TOKEN
+        },
+        body: JSON.stringify(payload)
+      });
+      const data = await response.json();
+      alert(data.message);
+      if (data.success) location.reload();
+    } catch (error) {
+      alert("Error: " + error.message);
+    }
+  });
+
+  // --- Delete Staff Function ---
+  function deleteStaff(staff_id) {
+    if (!confirm("Are you sure you want to delete this staff account?")) return;
+    fetch("/api/admin/delete_staff", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": CSRF_TOKEN
+      },
+      body: JSON.stringify({ staff_id: staff_id })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      if (data.success) location.reload();
+    })
+    .catch(err => alert("Error: " + err.message));
+  }
+
+  // --- Toggle Lock/Unlock Function ---
+  function toggleLock(staff_id, currentLockStatus) {
+    const action = currentLockStatus ? "unlock_account" : "lock_account";
+    fetch("/api/admin/" + action, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-CSRFToken": CSRF_TOKEN
+      },
+      body: JSON.stringify({ user_id: staff_id })
+    })
+    .then(response => response.json())
+    .then(data => {
+      alert(data.message);
+      if (data.success) location.reload();
+    })
+    .catch(err => alert("Error: " + err.message));
+  }
+
+  // --- Show/Hide Form Functions ---
+  function showCreateEmployeeForm() {
+    document.getElementById("createEmployeeForm").style.display = "block";
+  }
+  function hideCreateEmployeeForm() {
+    document.getElementById("createEmployeeForm").style.display = "none";
+  }
+  function showCreateAdminForm() {
+    document.getElementById("createAdminForm").style.display = "block";
+  }
+  function hideCreateAdminForm() {
+    document.getElementById("createAdminForm").style.display = "none";
+  }
+  function showUpdateStaffForm(user_id, username, email, phone, account_type, is_locked) {
+    document.getElementById("update_user_id").value = user_id;
+    document.getElementById("update_username").value = username;
+    document.getElementById("update_email").value = email;
+    document.getElementById("update_phone_number").value = phone;
+    if (document.getElementById("update_is_locked")) {
+      document.getElementById("update_is_locked").checked = is_locked;
+    }
+    document.getElementById("updateStaffForm").style.display = "block";
+  }
+  function hideUpdateStaffForm() {
+    document.getElementById("updateStaffForm").style.display = "none";
+  }
+</script>
+{% endblock %}

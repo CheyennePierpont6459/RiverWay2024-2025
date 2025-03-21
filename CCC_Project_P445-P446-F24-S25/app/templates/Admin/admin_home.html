@@ -1,0 +1,151 @@
+﻿{% extends "Admin/admin_base.html" %}
+{% block title %}Admin Home - Cave Country Canoes{% endblock %}
+
+{% block head %}
+  <!-- Include FontAwesome v3 CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css">
+  <style>
+    /* Centered Modal Styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none; /* Hidden by default */
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    .modal-content {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      max-width: 400px;
+      width: 100%;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    /* Style for the password input container */
+    .password-container {
+      position: relative;
+      width: 100%;
+    }
+    .password-container input {
+      width: 100%;
+      padding-right: 40px; /* Space for the eye toggle */
+    }
+    .toggle-password {
+      position: absolute;
+      top: 50%;
+      right: 10px;
+      transform: translateY(-50%);
+      cursor: pointer;
+      font-size: 1.2rem;
+      color: #555;
+    }
+  </style>
+{% endblock %}
+
+{% block content %}
+  <h2>Welcome, {{ current_user.username }}!</h2>
+  <!-- Dashboard statistics -->
+  <div class="dashboard-stats">
+    <h3>Dashboard Statistics</h3>
+    <ul>
+      <li>Total Customers: {{ stats.total_customers }}</li>
+      <li>Total Employees: {{ stats.total_employees }}</li>
+      <li>Total Emergencies: {{ stats.total_emergencies }}</li>
+      <li>Unresolved Emergencies: {{ stats.unresolved_emergencies }}</li>
+    </ul>
+  </div>
+  {% if current_user.account_type == "admin" %}
+    <button id="btnElevate" class="btn elevate">Elevate Privileges</button>
+  {% elif current_user.account_type == "super_admin" %}
+    <p class="status success">You are currently a SUPER ADMIN!</p>
+  {% endif %}
+
+  <!-- Modal for elevating privileges -->
+  <div id="elevateModal" class="modal">
+    <div class="modal-content">
+      <h3>Enter Root Password</h3>
+      <div class="password-container">
+        <input type="password" id="elevateRootPwd" placeholder="Root password" class="border rounded p-2">
+        <!-- Initially, password is hidden so we show the open eye icon -->
+        <span id="togglePassword" class="toggle-password"><i class="icon-eye-open"></i></span>
+      </div>
+      <div style="margin-top: 15px;">
+        <button id="btnSubmitElevate" class="btn">Submit</button>
+        <button id="btnCloseElevate" class="btn">Close</button>
+      </div>
+    </div>
+  </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Elevation modal functionality
+  document.addEventListener('DOMContentLoaded', function() {
+    const btnElevate = document.getElementById('btnElevate');
+    const elevateModal = document.getElementById('elevateModal');
+    const btnCloseElevate = document.getElementById('btnCloseElevate');
+    const btnSubmitElevate = document.getElementById('btnSubmitElevate');
+    const elevateRootPwd = document.getElementById('elevateRootPwd');
+    const togglePassword = document.getElementById('togglePassword');
+
+    if (btnElevate) {
+      btnElevate.addEventListener('click', () => {
+        elevateModal.style.display = 'flex';
+        elevateRootPwd.value = '';
+        // Reset to password type and open eye icon.
+        elevateRootPwd.type = 'password';
+        togglePassword.innerHTML = '<i class="icon-eye-open"></i>';
+      });
+    }
+    if (btnCloseElevate) {
+      btnCloseElevate.addEventListener('click', () => {
+        elevateModal.style.display = 'none';
+      });
+    }
+    if (togglePassword) {
+      togglePassword.addEventListener('click', () => {
+        if (elevateRootPwd.type === 'password') {
+          elevateRootPwd.type = 'text';
+          // Change to closed-eye icon.
+          togglePassword.innerHTML = '<i class="icon-eye-close"></i>';
+        } else {
+          elevateRootPwd.type = 'password';
+          togglePassword.innerHTML = '<i class="icon-eye-open"></i>';
+        }
+      });
+    }
+    if (btnSubmitElevate) {
+      btnSubmitElevate.addEventListener('click', () => {
+        const rootPwd = elevateRootPwd.value.trim();
+        fetch("{{ url_for('main.api_elevate_super_admin') }}", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": CSRF_TOKEN  // CSRF protection
+          },
+          body: JSON.stringify({ ROOT_PASSWORD: rootPwd })
+        })
+        .then(res => res.json().then(data => ({status: res.status, body: data})))
+        .then(({ status, body }) => {
+          alert(body.message);
+          if (status === 200 && body.success) {
+            window.location.reload();
+          } else if (status === 403) {
+            elevateModal.style.display = 'none';
+          }
+        })
+        .catch(err => {
+          console.error("Elevate privileges error:", err);
+          alert("An error occurred while elevating privileges.");
+        });
+      });
+    }
+  });
+</script>
+{% endblock %}

@@ -1,0 +1,32 @@
+﻿<!-- templates/emails/employee_not_tracking.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Employee No Longer Tracking</title>
+    <style>
+        body { font-family: Arial, sans-serif; background-color: #f4f4f4; padding: 20px; }
+        .container { background-color: #ffffff; padding: 20px; border-radius: 5px; }
+        .header { background-color: #ffcc00; color: #333; padding: 10px; text-align: center; border-radius: 5px 5px 0 0; }
+        .content { margin-top: 20px; }
+        .footer { margin-top: 20px; font-size: 12px; color: #888888; text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h2>Employee Unassigned</h2>
+        </div>
+        <div class="content">
+            <p>Dear {{ customer.username }},</p>
+            <p>We wanted to let you know that your assigned employee (<strong>{{ employee.username }}</strong>) is no longer tracking your emergency (ID: <strong>{{ emergency_id }}</strong>).</p>
+            <p>If you have any questions or concerns, please contact our support or reach out via the chat feature.</p>
+            <p>Thank you for your understanding.</p>
+            <p>Best regards,<br>CCC Emergency Map Team</p>
+        </div>
+        <div class="footer">
+            <p>&copy; {{ current_year }} CCC Emergency Map. All rights reserved.</p>
+        </div>
+    </div>
+</body>
+</html>

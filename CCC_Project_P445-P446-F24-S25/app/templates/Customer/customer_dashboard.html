@@ -1,0 +1,31 @@
+﻿{% extends "Customer/customer_base.html" %}
+
+{% block content %}
+<h1>Welcome, {{ username }}</h1>
+<p>Explore the app:</p>
+
+<ul>
+    <li><a href="{{ url_for('main.reviews_page', st=session_token) }}">View and Submit Reviews</a></li>
+    <li><a href="{{ url_for('main.submit_log_page', st=session_token) }}">Submit Emergency Log</a></li>
+    <li><a href="{{ url_for('main.chat', st=session_token) }}">Join Chat Room</a></li>
+</ul>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Compare the current session token with the one stored in sessionStorage.
+  // This ensures the alert shows only once per login session.
+  const currentSessionToken = "{{ session_token }}";
+  const storedSessionToken = sessionStorage.getItem('dashboardSessionToken');
+
+  if (storedSessionToken !== currentSessionToken) {
+      alert("Please remember to be off the water by 8:00 pm!");
+      // Store the current token so the alert won’t reappear on later visits in this session.
+      sessionStorage.setItem('dashboardSessionToken', currentSessionToken);
+  }
+
+</script>
+<script>
+  console.log("SESSION_TOKEN:", "{{ session_token }}");
+</script>
+{% endblock %}

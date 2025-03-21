@@ -1,0 +1,52 @@
+﻿{% extends "Admin/admin_base.html" %}
+{% block title %}Manage Emergencies - Cave Country Canoes{% endblock %}
+
+{% block content %}
+  <h2>Manage Emergencies</h2>
+  <table class="table table-striped">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Customer Name</th>
+        <th>Phone Number</th>
+        <th>Location Details</th>
+        <th>Distress Notes</th>
+        <th>Assigned Employee</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for em in emergencies %}
+      <tr>
+        <td>{{ em.emergency_id }}</td>
+        <td>{{ em.customer_name }}</td>
+        <td>{{ em.customer_phone }}</td>
+        <td>{{ em.location_details }}</td>
+        <td>{{ em.distress_notes }}</td>
+        <td>{{ em.assigned_employee_name if em.assigned_employee_name else "Unassigned" }}</td>
+        <td>
+          {% if not em.assigned_employee_id %}
+            <select id="assign_employee_{{ em.emergency_id }}" class="form-select form-select-sm">
+              <option value="">-- Select Employee --</option>
+              {% for emp in employees %}
+                {% if not emp.is_locked %}
+                  <option value="{{ emp.user_id }}">{{ emp.username }}</option>
+                {% else %}
+                  <option value="{{ emp.user_id }}" disabled>{{ emp.username }} (Locked)</option>
+                {% endif %}
+              {% endfor %}
+            </select>
+            <button class="btn btn-sm btn-primary mt-1" onclick="assignEmergency({{ em.emergency_id }})">Assign</button>
+          {% else %}
+            <button class="btn btn-sm btn-warning" onclick="unassignEmergency({{ em.emergency_id }})">Unassign</button>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='admin_emergencies.js') }}"></script>
+{% endblock %}

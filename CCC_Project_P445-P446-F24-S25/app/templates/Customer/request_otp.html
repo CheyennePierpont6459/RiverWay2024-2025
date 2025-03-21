@@ -1,0 +1,94 @@
+﻿{% extends "Customer/customer_base.html" %}
+{% block head %}
+  <style>
+    /* Center the form container */
+    .center-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 80px);
+    }
+    .form-container {
+      max-width: 400px;
+      width: 100%;
+      padding: 20px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .form-group { margin-bottom: 15px; }
+    .flash {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .flash-success { background-color: #d4edda; color: #155724; }
+    .flash-danger  { background-color: #f8d7da; color: #721c24; }
+  </style>
+{% endblock %}
+{% block content %}
+  <div class="center-container">
+    <div class="form-container">
+      <h2>Request OTP for Account Update</h2>
+      <p>Please enter your email to receive an OTP.</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      <form id="requestOtpForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="form-group">
+          <label for="emailInput">Email:</label>
+          <input type="email" id="emailInput" name="email" placeholder="Enter your email" required>
+        </div>
+        <button type="submit" class="btn btn-primary">Send OTP</button>
+      </form>
+      <div id="otpRequestFlash"></div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <!-- Inject global variables -->
+  <script>
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+    const SESSION_TOKEN = "{{ session_token }}";
+  </script>
+  <!-- Load DOMPurify -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.0/purify.min.js"
+          integrity="sha512-p/Rj8sM8c7rRQFrYq+Rw7pJp14UZDKp1Djdx0YXmiFQ/h5JKLLi+CPM9pys6S8W0K8m7WRjQjBYrkFizbPLP5w=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    document.getElementById('requestOtpForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('emailInput').value.trim();
+      try {
+        const response = await fetch(`/request_otp?st=${encodeURIComponent(SESSION_TOKEN)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          credentials: 'include', // include session cookie
+          body: JSON.stringify({ email: email })
+        });
+        const result = await response.json();
+        const flashDiv = document.getElementById('otpRequestFlash');
+        if (result.success) {
+          flashDiv.innerHTML = DOMPurify.sanitize(`<div class="flash flash-success">${result.message}</div>`);
+          setTimeout(() => {
+            window.location.href = `/otp_verify?st=${encodeURIComponent(SESSION_TOKEN)}`;
+          }, 1500);
+        } else {
+          flashDiv.innerHTML = DOMPurify.sanitize(`<div class="flash flash-danger">${result.message}</div>`);
+        }
+      } catch (error) {
+        document.getElementById('otpRequestFlash').innerHTML =
+          DOMPurify.sanitize(`<div class="flash flash-danger">Error: ${error.message}</div>`);
+      }
+    });
+  </script>
+{% endblock %}

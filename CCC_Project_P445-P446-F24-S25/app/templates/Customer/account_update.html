@@ -1,0 +1,286 @@
+﻿{% extends "Customer/customer_base.html" %}
+{% block head %}
+  <style>
+    .center-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: calc(100vh - 80px);
+    }
+    .form-container {
+      max-width: 800px;
+      width: 100%;
+      padding: 20px;
+      background: rgba(255,255,255,0.9);
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .multicolumn {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 20px;
+      row-gap: 15px;
+    }
+    .full-width { grid-column: 1 / -1; }
+    .form-group { margin-bottom: 15px; }
+    .input-container { position: relative; }
+    .input-container input {
+      width: 100%;
+      padding: 12px;
+      padding-right: 60px; /* Extra space for eye toggle */
+      font-size: 1.1rem;
+      box-sizing: border-box;
+    }
+    .toggle-eye {
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      cursor: pointer;
+      font-size: 1.5rem;
+      user-select: none;
+    }
+    #passwordStrengthBarContainer {
+      width: 100%;
+      height: 8px;
+      background-color: #ddd;
+      margin-top: 5px;
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid #ccc;
+    }
+    #passwordStrengthBar {
+      height: 100%;
+      width: 0%;
+      background-color: red;
+      transition: width 0.3s ease, background-color 0.3s ease;
+    }
+    .flash {
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 4px;
+      font-weight: bold;
+    }
+    .flash-success { background-color: #d4edda; color: #155724; }
+    .flash-danger  { background-color: #f8d7da; color: #721c24; }
+    .center-checkbox {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .mt-4 { margin-top: 1rem; }
+  </style>
+  <!-- Ensure FontAwesome v3 is loaded -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/3.2.1/css/font-awesome.min.css">
+{% endblock %}
+{% block content %}
+  <div class="center-container">
+    <div class="form-container">
+      <h2>Update Your Account</h2>
+      <p>You may update your username, email, password, and phone number below. (OTP must be verified before updating.)</p>
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+          {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">{{ message }}</div>
+          {% endfor %}
+        {% endif %}
+      {% endwith %}
+      <form id="accountUpdateForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="multicolumn">
+          <div class="form-group">
+            <label for="newUsername">New Username:</label>
+            <input type="text" id="newUsername" name="new_username" placeholder="Enter new username">
+          </div>
+          <div class="form-group">
+            <label for="newPassword">New Password:</label>
+            <div class="input-container">
+              <input type="password" id="newPassword" name="new_password" placeholder="Enter new password">
+              <span class="toggle-eye" id="toggleNewPassword"><i class="icon-eye-open"></i></span>
+            </div>
+            <div id="passwordStrengthBarContainer">
+              <div id="passwordStrengthBar"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <label for="newEmail">New Email:</label>
+            <input type="email" id="newEmail" name="new_email" placeholder="Enter new email">
+          </div>
+          <div class="form-group mt-4">
+            <label for="confirmPassword">Confirm New Password:</label>
+            <div class="input-container">
+              <input type="password" id="confirmPassword" name="confirm_password" placeholder="Confirm new password">
+              <span class="toggle-eye" id="toggleConfirmPassword"><i class="icon-eye-open"></i></span>
+            </div>
+          </div>
+          <div class="form-group full-width">
+            <button type="button" id="generatePasswordBtn" class="btn btn-secondary">Generate Secure Password</button>
+          </div>
+          <div class="form-group full-width">
+            <label for="newPhone">New Phone Number:</label>
+            <input type="text" id="newPhone" name="new_phone" placeholder="Enter new phone number">
+          </div>
+          <div class="form-group full-width" style="display: flex; justify-content: space-between;">
+            <button type="submit" class="btn btn-success">Update Account</button>
+            <button type="button" id="deleteAccountButton" class="btn btn-danger">Delete Account</button>
+          </div>
+        </div>
+      </form>
+      <div id="accountUpdateFlash"></div>
+      <div id="deleteAccountFlash"></div>
+    </div>
+  </div>
+{% endblock %}
+{% block scripts %}
+  <script>
+    const CSRF_TOKEN = "{{ csrf_token() }}";
+    const SESSION_TOKEN = "{{ session_token }}";
+  </script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.4.0/purify.min.js"
+          integrity="sha512-p/Rj8sM8c7rRQFrYq+Rw7pJp14UZDKp1Djdx0YXmiFQ/h5JKLLi+CPM9pys6S8W0K8m7WRjQjBYrkFizbPLP5w=="
+          crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+  <script>
+    // --- Password Strength and Generation Functions ---
+    function calculateCharset(password) {
+      let charset = 0;
+      if (/[a-z]/.test(password)) charset += 26;
+      if (/[A-Z]/.test(password)) charset += 26;
+      if (/[0-9]/.test(password)) charset += 10;
+      if (/[\W_]/.test(password)) charset += 32;
+      return charset;
+    }
+    function calculateEntropy(password) {
+      const charsetSize = calculateCharset(password);
+      if (charsetSize === 0) return 0;
+      return password.length * Math.log2(charsetSize);
+    }
+    function evaluatePasswordStrength(password) {
+      const entropy = calculateEntropy(password);
+      let strengthLabel, color;
+      if (entropy < 28) { strengthLabel = "Very Weak"; color = "red"; }
+      else if (entropy < 36) { strengthLabel = "Weak"; color = "orange"; }
+      else if (entropy < 60) { strengthLabel = "Moderate"; color = "goldenrod"; }
+      else if (entropy < 128) { strengthLabel = "Strong"; color = "green"; }
+      else { strengthLabel = "Very Strong"; color = "blue"; }
+      return { strengthLabel, color, entropy };
+    }
+    function updateStrengthBar(inputId, barContainerId, barId) {
+      const pwd = document.getElementById(inputId).value;
+      const { entropy, color } = evaluatePasswordStrength(pwd);
+      const percent = Math.min((entropy / 256) * 100, 100);
+      const bar = document.getElementById(barId);
+      bar.style.width = percent + "%";
+      bar.style.backgroundColor = color;
+    }
+    function generateSecurePassword() {
+      const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()_+-=[]{}|;:',.<>/?";
+      const length = 40;
+      const randomValues = new Uint32Array(length);
+      window.crypto.getRandomValues(randomValues);
+      let password = "";
+      for (let i = 0; i < length; i++) {
+        password += charset[randomValues[i] % charset.length];
+      }
+      return password;
+    }
+    // --- Toggle Password Visibility ---
+    function setupTogglePassword(toggleId, fieldId) {
+      document.getElementById(toggleId).addEventListener("click", function() {
+        const field = document.getElementById(fieldId);
+        console.log("Toggling password for field:", fieldId);
+        if (field.type === "password") {
+          field.type = "text";
+          this.innerHTML = '<i class="icon-eye-close"></i>';
+        } else {
+          field.type = "password";
+          this.innerHTML = '<i class="icon-eye-open"></i>';
+        }
+      });
+    }
+    setupTogglePassword("toggleNewPassword", "newPassword");
+    setupTogglePassword("toggleConfirmPassword", "confirmPassword");
+    // --- Strength Bar Updates ---
+    document.getElementById("newPassword").addEventListener("input", function() {
+      updateStrengthBar("newPassword", "passwordStrengthBarContainer", "passwordStrengthBar");
+    });
+    // --- Generate Secure Password Button Handler ---
+    document.getElementById("generatePasswordBtn").addEventListener("click", function() {
+      const pwd = generateSecurePassword();
+      document.getElementById("newPassword").value = pwd;
+      document.getElementById("confirmPassword").value = pwd;
+      updateStrengthBar("newPassword", "passwordStrengthBarContainer", "passwordStrengthBar");
+      alert("A secure password has been generated and filled in.");
+    });
+    // --- AJAX for Account Update ---
+    document.getElementById('accountUpdateForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const newUsername = document.getElementById('newUsername').value.trim();
+      const newEmail = document.getElementById('newEmail').value.trim();
+      const newPassword = document.getElementById('newPassword').value.trim();
+      const confirmPassword = document.getElementById('confirmPassword').value.trim();
+      const newPhone = document.getElementById('newPhone').value.trim();
+      if ((newPassword || confirmPassword) && newPassword !== confirmPassword) {
+        document.getElementById('accountUpdateFlash').innerHTML = DOMPurify.sanitize(`<div class="flash flash-danger">Passwords do not match.</div>`);
+        return;
+      }
+      try {
+        const response = await fetch(`/account_update?st=${encodeURIComponent(SESSION_TOKEN)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            new_username: newUsername,
+            new_email: newEmail,
+            new_password: newPassword,
+            new_phone: newPhone
+          })
+        });
+        const result = await response.json();
+        const flashDiv = document.getElementById('accountUpdateFlash');
+        if (result.success) {
+          flashDiv.innerHTML = DOMPurify.sanitize(`<div class="flash flash-success">${result.message}</div>`);
+          setTimeout(() => {
+            window.location.href = `/customer_dashboard?st=${encodeURIComponent(SESSION_TOKEN)}`;
+          }, 1500);
+        } else {
+          flashDiv.innerHTML = DOMPurify.sanitize(`<div class="flash flash-danger">${result.message}</div>`);
+        }
+      } catch (error) {
+        document.getElementById('accountUpdateFlash').innerHTML =
+          DOMPurify.sanitize(`<div class="flash flash-danger">Error: ${error.message}</div>`);
+      }
+    });
+    // Handle Delete Account Button
+    document.getElementById('deleteAccountButton').addEventListener('click', async () => {
+      if (!confirm("Are you sure you want to delete your account? This action cannot be undone.")) {
+        return;
+      }
+      try {
+        const response = await fetch(`/api/delete_account?st=${encodeURIComponent(SESSION_TOKEN)}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': CSRF_TOKEN
+          },
+          credentials: 'include'
+        });
+        const result = await response.json();
+        const flashDiv = document.getElementById('deleteAccountFlash');
+        if (result.success) {
+          flashDiv.innerHTML = DOMPurify.sanitize(`<div class="flash flash-success">${result.message}</div>`);
+          setTimeout(() => {
+            window.location.href = "/login_page";
+          }, 1500);
+        } else {
+          flashDiv.innerHTML = DOMPurify.sanitize(`<div class="flash flash-danger">${result.message}</div>`);
+        }
+      } catch (error) {
+        document.getElementById('deleteAccountFlash').innerHTML =
+          DOMPurify.sanitize(`<div class="flash flash-danger">Error: ${error.message}</div>`);
+      }
+    });
+  </script>
+{% endblock %}

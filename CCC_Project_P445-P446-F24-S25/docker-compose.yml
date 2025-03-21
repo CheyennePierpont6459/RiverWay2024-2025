@@ -1,0 +1,44 @@
+﻿services:
+  web:
+    build: .
+    container_name: Cave_Country_Canoes-docker_web
+    ports:
+      - "9002:9002"
+    environment:
+      FLASK_APP: "run.py"
+      FLASK_ENV: "development"
+      DATABASE_URL: "postgresql://postgres:postgres@db:5432/cave_country_canoes"
+      SECRET_KEY: "myUFCUO9a6wqR0pL6uLrdFFS7QD7mHZ6n"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - static_net
+
+  db:
+    image: postgres:15
+    container_name: Cave_Country_Canoes-docker_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: cave_country_canoes
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d cave_country_canoes"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    networks:
+      - static_net
+
+volumes:
+  db_data:
+
+networks:
+  static_net:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.30.0.0/16
