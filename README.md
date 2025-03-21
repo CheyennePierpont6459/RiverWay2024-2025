@@ -37,8 +37,8 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 ### Prerequisites 
 
 - Python 3.x 
-
-- MySQL Server 
+- Postgres 
+- Docker
 
 ### Steps 
 
@@ -64,25 +64,29 @@ The CCC Emergency Map System is a Flask-based web application designed to manage
 3. **Configure Environment Variables** 
 
     Create a `.env` file in the project root and set the following variables: 
+```env 
+# Flask Configuration
+FLASK_ENV=development
+SECRET_KEY="<secret_key>" #see step 4.
 
-    ```env 
+ROOT_PASSWORD=SuperSecretAdminPassword #consider more secure password. NOTE: This is used to create a the first admin account and elevate an admin account to a super admin.
 
-    SECRET_KEY=your_secret_key 
+# PostgreSQL Database Configuration
+DB_HOST=localhost
+DB_USER=postgres
+DB_PASSWORD=postgres
+DB_NAME=cave_country_canoes
+DATABASE_URL=postgresql://postgres:postgres@localhost:5432/cave_country_canoes
 
-    MYSQL_HOST=localhost 
-
-    MYSQL_USER=root 
-
-    MYSQL_PASSWORD=your_mysql_password 
-
-    MYSQL_DB=ccc_emergency_map 
-   
-   MAIL_USERNAME=cccemergencyresponse@gmail.com
-   MAIL_PASSWORD=<cccemergencyresponse@gmail.com's google account app password> #get from Google Account manager
-   MAIL_PORT=465
-
-   ROOT_PASSWORD=SuperSecretAdminPassword #consider a more secure Root password
-    ``` 
+# Email Configuration
+MAIL_SERVER=smtp.gmail.com
+MAIL_PORT=587
+MAIL_USE_SSL=false
+MAIL_USE_TLS=true
+MAIL_USERNAME=cccemergencyresponse@gmail.com
+MAIL_PASSWORD='<Get from System Admin>'
+MAIL_DEFAULT_SENDER=('Cave Country Canoes', 'cccemergencyresponse@gmail.com')
+``` 
 
     Alternatively, set these variables in your system environment. 
 4. **Run the following in the terminal to generate a SECRET_KEY for the .env file.**
@@ -95,15 +99,7 @@ python -c "import os, base64; print(base64.urlsafe_b64encode(os.urandom(24)).dec
 5. **Set Up the Database** 
 
     - **Create Database and Tables** 
-
-        Execute your provided MySQL SQL script to create the `ccc_emergency_map` database and all tables. 
-
-        ```bash 
-
-        mysql -u root -p your_mysql_password < ccc_emergency_map_schema.sql 
-
-        ```
-You can also set up the SQL server instance by using [MySQL Workbench](https://www.mysql.com/products/workbench/). Take the provided code in ccc_emergency_map.sql, copy it, and add it to a created schema named “ccc_emergency_map.sql”.
+The docker container enacts a the database itself via access to port 5432. 
 
 6.
     - **Initialize Database Migrations**
@@ -128,8 +124,11 @@ You can also set up the SQL server instance by using [MySQL Workbench](https://w
 
     ``` 
 
-    The application will be accessible at `http://localhost:5000/` or on the localnetwork at http://192.168.X.X:5000 depending on socket capability. If your network is custom-configured, the IP may be different.
-
+Alternativity, you can run the system through the container.  
+```
+The application will be accessible at `http://localhost:port/`or on the localnet work at http://ip:port depending 
+on socket capability. If ran through the docker container, access  the system through localhost.
+```
 ## Usage 
 
 1. **Registration** 
@@ -148,17 +147,17 @@ You can also set up the SQL server instance by using [MySQL Workbench](https://w
 3. **Dashboards** 
 
     - **Customer Dashboard**: 
-      - View trips
       - Create distress alerts
       - View site details
       - Leave reviews. 
+      - Chat
 
     - **Employee Dashboard**: 
       - Manage trips
       - handle assigned alerts
       - view all distress trips
-      - View site details
       - View customer reviews. 
+      - Chat
 
     - **Admin Dashboard**: 
       - Create, delete, and modify details of Employee accounts
