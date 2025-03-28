@@ -1,4 +1,4 @@
-﻿"""
+"""
 All application routes for the CCC Emergency Map.
 
 This module defines the Flask blueprint 'main' containing all routes,
@@ -453,17 +453,27 @@ def verify_email(token):
 @bp.route("/forgot_password", methods=["GET", "POST"])
 def forgot_password():
     if request.method == "POST":
-        data = request.get_json()
-        raw_email = data.get("email", "")
+        # Use JSON data if available; otherwise fall back to form data.
+        if request.is_json:
+            data = request.get_json()
+        else:
+            data = request.form
+
+        if not data:
+            return jsonify({"success": False, "message": "Invalid request data."}), 400
+
+        raw_email = data.get("email", "").strip()
         email = sanitize_input(raw_email)
         current_app.logger.debug(f"Forgot password: raw email: {raw_email} | sanitized: {email}")
         if is_modified(raw_email, email):
             return jsonify({"success": False, "message": "Email contains disallowed content."}), 400
         if not email:
             return jsonify({"success": False, "message": "Email is required."}), 400
+
         user = Users.query.filter_by(email=email).first()
         if not user or user.account_type != "customer":
             return jsonify({"success": False, "message": "Invalid or not a customer."}), 400
+
         verification_code = generate_secure_otp()
         expiration = datetime.now() + timedelta(minutes=10)
         mfa_entry = MFA.query.filter_by(user_id=user.user_id).first()
@@ -476,11 +486,23 @@ def forgot_password():
         try:
             db.session.commit()
             send_verification_email_plain(user.email, user.username, verification_code)
-            return jsonify({"success": True, "message": "OTP sent to your email."}), 200
+            if request.is_json:
+                return jsonify({"success": True, "message": "OTP sent to your email."}), 200
+            else:
+                flash("OTP sent to your email.", "success")
+                return redirect(url_for("main.reset_password"))
         except Exception as e:
             db.session.rollback()
-            return jsonify({"success": False, "message": f"DB error: {e}"}), 500
+            error_message = f"Database error: {e}"
+            if request.is_json:
+                return jsonify({"success": False, "message": error_message}), 500
+            else:
+                flash(error_message, "danger")
+                return redirect(url_for("main.forgot_password"))
+
+    # GET request – render the forgot password page.
     return render_template("Customer/forgot_password.html")
+
 
 @bp.route("/customer_dashboard")
 @login_required
@@ -1600,14 +1622,15 @@ def unauthorized_callback():
     else:
         return redirect(url_for('main.login_page'))
 
-
-@bp.route("/reset_password", methods=["GET", "POST"])
+@bp.route("/reset_password", methods=["GET"])
 def reset_password():
-    # For GET, simply render the reset password template.
-    if request.method == "GET":
-        return render_template("Customer/reset_password.html")
+    # Simply render the reset password template for GET requests.
+    return render_template("Customer/reset_password.html")
 
-    # For POST, process the reset password request.
+
+@bp.route("/api/reset_password", methods=["POST"])
+def api_reset_password():
+    # Process the reset password request via JSON payload.
     data = request.get_json() or request.form
     email = data.get("email", "").strip()
     otp = data.get("otp", "").strip()
@@ -1631,10 +1654,9 @@ def reset_password():
     if not mfa_entry or mfa_entry.expiration < datetime.now():
         return jsonify({"success": False, "message": "Invalid or expired OTP."}), 400
 
-    # Update the user's password
+    # Update the user's password and remove the used OTP entry
     try:
         user.password_hash = bcrypt.generate_password_hash(new_password).decode("utf-8")
-        # Remove the used OTP entry
         db.session.delete(mfa_entry)
         db.session.commit()
         return jsonify({"success": True, "message": "Password reset successfully."}), 200
@@ -1642,6 +1664,8 @@ def reset_password():
         db.session.rollback()
         current_app.logger.error("Error resetting password for user %s: %s", user.user_id, e)
         return jsonify({"success": False, "message": "Error resetting password."}), 500
+
+
 
 
 @bp.app_context_processor
