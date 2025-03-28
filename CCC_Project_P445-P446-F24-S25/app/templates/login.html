@@ -1,8 +1,8 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Login</title>
+  <title>Login - Cave Country Canoes</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
   <script>
     const CSRF_TOKEN = "{{ csrf_token() }}";
@@ -14,14 +14,14 @@
       padding: 0;
       height: 100%;
     }
-    /* Use flex to center the login container */
+    /* Flexbox centering */
     body {
       display: flex;
       justify-content: center;
       align-items: center;
       height: 100vh;
     }
-    /* Background image container spanning the full page */
+    /* Full-page background image */
     #image-container {
       position: fixed;
       top: 0;
@@ -35,7 +35,7 @@
       height: 100%;
       object-fit: cover;
     }
-    /* Styling for the login form container */
+    /* Login form container styling */
     .form-container {
       max-width: 400px;
       padding: 20px;
@@ -44,7 +44,7 @@
       box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       z-index: 1;
     }
-    /* Simple flash message styling */
+    /* Flash message styling */
     .flash {
       padding: 10px;
       margin-bottom: 15px;
@@ -90,24 +90,22 @@
     <div id="result"></div>
   </div>
   <script>
-    // Function to decode HTML entities using a temporary textarea
+    // Helper function to decode HTML entities
     function decodeHTML(html) {
-      var txt = document.createElement("textarea");
+      const txt = document.createElement("textarea");
       txt.innerHTML = html;
       return txt.value;
     }
 
     document.addEventListener("DOMContentLoaded", () => {
       const loginForm = document.getElementById("loginForm");
+
+      // Sanitize input on submit using DOMPurify
       loginForm.addEventListener("submit", (e) => {
-        const emailField = document.getElementById("emailField");
-        const passwordField = document.getElementById("passwordField");
-        const rawEmail = emailField.value;
-        const rawPassword = passwordField.value;
-        // Use DOMPurify to sanitize with no allowed tags.
-        const sanitizedEmail = DOMPurify.sanitize(rawEmail, {ALLOWED_TAGS: []});
-        const sanitizedPassword = DOMPurify.sanitize(rawPassword, {ALLOWED_TAGS: []});
-        // Compare the raw input with the decoded sanitized output.
+        const rawEmail = document.getElementById("emailField").value;
+        const rawPassword = document.getElementById("passwordField").value;
+        const sanitizedEmail = DOMPurify.sanitize(rawEmail, { ALLOWED_TAGS: [] });
+        const sanitizedPassword = DOMPurify.sanitize(rawPassword, { ALLOWED_TAGS: [] });
         if (rawEmail !== decodeHTML(sanitizedEmail) || rawPassword !== decodeHTML(sanitizedPassword)) {
           e.preventDefault();
           alert("Your input contains disallowed content. Please remove it and try again.");
@@ -115,11 +113,13 @@
         }
       });
 
+      // Submit the login form using fetch
       loginForm.addEventListener("submit", async (e) => {
         e.preventDefault();
         const email = document.getElementById("emailField").value.trim();
         const password = document.getElementById("passwordField").value.trim();
         const resultDiv = document.getElementById("result");
+
         try {
           const response = await fetch("/api/login", {
             method: "POST",
@@ -135,11 +135,11 @@
             resultDiv.style.color = "green";
             let redirectUrl;
             if (data.account_type === "admin" || data.account_type === "super_admin") {
-              redirectUrl = "{{ url_for("main.admin_home") }}" + "?st=" + encodeURIComponent(data.session_token);
+              redirectUrl = "{{ url_for('main.admin_home') }}" + "?st=" + encodeURIComponent(data.session_token);
             } else if (data.account_type === "customer") {
-              redirectUrl = "{{ url_for("main.customer_dashboard") }}" + "?st=" + encodeURIComponent(data.session_token);
+              redirectUrl = "{{ url_for('main.customer_dashboard') }}" + "?st=" + encodeURIComponent(data.session_token);
             } else if (data.account_type === "employee") {
-              redirectUrl = "{{ url_for("main.employee_home") }}" + "?st=" + encodeURIComponent(data.session_token);
+              redirectUrl = "{{ url_for('main.employee_home') }}" + "?st=" + encodeURIComponent(data.session_token);
             } else {
               redirectUrl = "/";
             }
